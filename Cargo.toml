@@ -2,3 +2,11 @@
 name = "hsm_gen"
 version = "0.1.0"
 authors = ["Mattis Marjak <mattis.marjak@gmail.com>"]
+
+[dependencies]
+log     = "*"
+fern    = "*"
+time    = "*"
+clap    = "*"
+sxd-document = "*"
+sxd-xpath    = "*"

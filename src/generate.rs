@@ -13,12 +13,11 @@ use rustc::session::config::{build_session_options,build_configuration, Input};
 use rustc_driver::{handle_options,diagnostics_registry};
 use rustc_driver::driver::{phase_1_parse_input, source_name};
 
-const crate_src : &'static str =  "fn main(){}";
+const CRATE_SRC : &'static str =  "fn main(){}";
 
 pub struct HsmGenerator {
     sess        : Session,
     cfg         : ast::CrateConfig,
-    input       : Input,
     src_name    : String,
     krate       : RefCell<ast::Crate>
 }
@@ -32,14 +31,13 @@ impl HsmGenerator {
         let sopts = build_session_options(&matches);
         let sess = build_session(sopts, None, descriptions);
         let cfg = build_configuration(&sess);
-        let input = Input::Str(crate_src.to_string());
+        let input = Input::Str(CRATE_SRC.to_string());
         let src_name = source_name(&input);
-        let mut krate = RefCell::new(phase_1_parse_input(&sess, cfg.clone(), &input));
+        let krate = RefCell::new(phase_1_parse_input(&sess, cfg.clone(), &input));
 
         HsmGenerator {
             sess    : sess,
             cfg     : cfg,
-            input   : input,
             src_name: src_name,
             krate   : krate
         }
