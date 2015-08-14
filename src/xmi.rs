@@ -1,20 +1,31 @@
+use std::io::prelude::*;
+use std::fs::File;
+use std::collections::HashMap;
+
 use sxd_document::Package;
 use sxd_document::dom::Document;
 use sxd_document::writer::format_document;
 use sxd_document::parser::Parser;
+use sxd_xpath::{Value,Functions,Variables,Namespaces,Factory,EvaluationContext,Expression};
+use sxd_xpath::function::register_core_functions;
 
-use sxd_xpath;
-
-use std::io::prelude::*;
-use std::fs::File;
-
-pub struct XmiReader {
-    package : Package
+pub struct XmiReader<'a> {
+    package     : Package,
+    functions   : Functions,
+    variables   : Variables<'a>,
+    namespaces  : Namespaces,
+    factory     : Factory,
 }
-impl XmiReader {
+impl<'a> XmiReader<'a> {
     pub fn new() -> Self {
+        let mut fns = HashMap::new();
+        register_core_functions(&mut fns);
         XmiReader {
-            package : Package::new()
+            package     : Package::new(),
+            functions   : fns,
+            variables   : HashMap::new(),
+            namespaces  : HashMap::new(),
+            factory     : Factory::new(),
         }
     }
 
@@ -25,9 +36,21 @@ impl XmiReader {
         let parser = Parser::new();
         let parseres = parser.parse(&s);
         println!("{:#?}", parseres);
-        XmiReader {
-            package: parseres.ok().expect("Could not parse")
-        }
+        let mut xmireader = XmiReader::new();
+        xmireader.package = parseres.ok().expect("Could not parse");
+        xmireader
+    }
+
+    fn evaluate(&self, xpath: &str) -> Value {
+        let root = self.doc().root();
+        let context = EvaluationContext::new(
+            root,
+            &self.functions,
+            &self.variables,
+            &self.namespaces,
+        );
+        let xpath = self.factory.build(xpath).unwrap().unwrap();
+        xpath.evaluate(&context).ok().unwrap()
     }
 
     fn doc(&self) -> Document {
