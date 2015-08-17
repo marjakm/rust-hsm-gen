@@ -5,14 +5,25 @@ extern crate time;
 
 extern crate hsm_gen;
 extern crate clap;
+extern crate sxd_xpath;
 
 use clap::{App, Arg};
+
 
 fn main() {
     conf_logger();
     let (inp, outp) = get_options();
-    let mut xmireader = hsm_gen::XmiReader::from_file(&inp);
-    xmireader.print(&outp);
+    let xmireader = hsm_gen::XmiReader::from_file(&inp);
+    // xmireader.test();
+    // xmireader.print(&outp);
+
+    let states = xmireader.states();
+    println!("states: {:?}", states);
+    let events = xmireader.events();
+    println!("events: {:?}", events);
+    let state_impls = xmireader.state_impls();
+    println!("state_impls: {:#?}", state_impls);
+
     // let generator = hsm_gen::HsmGenerator::new();
     // generator.test_modification();
     // generator.print();

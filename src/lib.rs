@@ -13,6 +13,7 @@ extern crate sxd_xpath;
 
 mod generate;
 mod xmi;
+mod state;
 
 pub use generate::HsmGenerator;
 pub use xmi::XmiReader;
