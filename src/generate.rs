@@ -152,6 +152,26 @@ impl HsmGenerator {
         self.krate.borrow_mut().module.items.push(x);
     }
 
+    pub fn create_state_parent_impls(&self, hm: &HashMap<String, State>) {
+        let cx = self.extctxt();
+        let st = str_to_ident("States");
+        let par_lst: Vec<TokenTree> = hm.values()
+            .map(|state| vec![
+                Token::Ident(str_to_ident(state.name.as_ref().unwrap()), IdentStyle::Plain),
+                Token::RArrow,
+                Token::Ident(str_to_ident(if let Some(ref x) = state.parent {x} else {"None"} ), IdentStyle::Plain)
+            ])
+            .collect::<Vec<_>>()
+            .join(&Token::Comma)
+            .into_iter()
+            .map(|t| TtToken(DUMMY_SP, t))
+            .collect();
+        let x = quote_item!(&cx,
+            hsm_state_parents!($st; $par_lst);
+        ).unwrap();
+        self.krate.borrow_mut().module.items.push(x);
+    }
+
     pub fn create_state_impls(&self, hm: &HashMap<String, State>) {
         let events = str_to_ident("Events");
         let states = str_to_ident("States");

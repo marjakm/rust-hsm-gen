@@ -27,6 +27,7 @@ fn main() {
     let generator = hsm_gen::HsmGenerator::new(true);
     generator.create_event_enum(&events);
     generator.create_hsm_objects(&states);
+    generator.create_state_parent_impls(&state_impls);
     generator.create_state_impls(&state_impls);
     generator.print(&outp);
     if let Some(fstubfle) = fstub {
