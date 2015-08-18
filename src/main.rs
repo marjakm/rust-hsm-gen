@@ -18,15 +18,17 @@ fn main() {
     // xmireader.print(&outp);
 
     let states = xmireader.states();
-    println!("states: {:?}", states);
+    // println!("states: {:?}", states);
     let events = xmireader.events();
-    println!("events: {:?}", events);
+    // println!("events: {:?}", events);
     let state_impls = xmireader.state_impls();
-    println!("state_impls: {:#?}", state_impls);
+    // println!("state_impls: {:#?}", state_impls);
 
-    // let generator = hsm_gen::HsmGenerator::new();
-    // generator.test_modification();
-    // generator.print();
+    let generator = hsm_gen::HsmGenerator::new();
+    generator.create_event_enum(events);
+    generator.create_hsm_objects(states);
+    generator.create_state_impls(state_impls);
+    generator.print(&outp);
 }
 
 fn get_options() -> (String, String) {
