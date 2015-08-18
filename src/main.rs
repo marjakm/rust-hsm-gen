@@ -12,7 +12,7 @@ use clap::{App, Arg};
 
 fn main() {
     conf_logger();
-    let (inp, outp) = get_options();
+    let (inp, outp, fstub) = get_options();
     let xmireader = hsm_gen::XmiReader::from_file(&inp);
     // xmireader.test();
     // xmireader.print(&outp);
@@ -24,14 +24,19 @@ fn main() {
     let state_impls = xmireader.state_impls();
     // println!("state_impls: {:#?}", state_impls);
 
-    let generator = hsm_gen::HsmGenerator::new();
-    generator.create_event_enum(events);
-    generator.create_hsm_objects(states);
-    generator.create_state_impls(state_impls);
+    let generator = hsm_gen::HsmGenerator::new(true);
+    generator.create_event_enum(&events);
+    generator.create_hsm_objects(&states);
+    generator.create_state_impls(&state_impls);
     generator.print(&outp);
+    if let Some(fstubfle) = fstub {
+        let gen2 = hsm_gen::HsmGenerator::new(false);
+        gen2.create_function_stubs(&state_impls);
+        gen2.print(&fstubfle);
+    }
 }
 
-fn get_options() -> (String, String) {
+fn get_options() -> (String, String, Option<String>) {
     let matches = App::new("HSM Generator")
                   .version("0.1.0")
                   .author("Mattis Marjak <mattis.marjak@gmail.com>")
@@ -46,9 +51,15 @@ fn get_options() -> (String, String) {
                        .help("Saves output to this file")
                        .required(true)
                        .takes_value(true))
-                       .get_matches();
+                      .arg(Arg::with_name("FUNC_STUBS")
+                       .short("f")
+                       .help("Writes function stubs to this file")
+                       .required(false)
+                       .takes_value(true))
+                  .get_matches();
     (matches.value_of("INPUT").unwrap().to_string(),
-     matches.value_of("OUTPUT").unwrap().to_string())
+     matches.value_of("OUTPUT").unwrap().to_string(),
+     matches.value_of("FUNC_STUBS").map(|x| x.to_string()))
 }
 
 fn conf_logger() {

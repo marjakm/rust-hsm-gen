@@ -31,7 +31,7 @@ pub struct HsmGenerator {
     krate       : RefCell<Crate>
 }
 impl HsmGenerator {
-    pub fn new() -> Self {
+    pub fn new(prefix: bool) -> Self {
         let matches = match handle_options(vec!["".to_string(), "-".to_string()]) {
             Some(matches) => matches,
             None => unreachable!()
@@ -40,7 +40,7 @@ impl HsmGenerator {
         let sopts = build_session_options(&matches);
         let sess = build_session(sopts, None, descriptions);
         let cfg = build_configuration(&sess);
-        let input = Input::Str(CRATE_SRC.to_string());
+        let input = Input::Str( if prefix {CRATE_SRC.to_string()} else {"".to_string()});
         let src_name = source_name(&input);
         let krate = RefCell::new(phase_1_parse_input(&sess, cfg.clone(), &input));
 
@@ -104,10 +104,10 @@ impl HsmGenerator {
         f.write(&out).expect("Could not write to file");
     }
 
-    pub fn create_event_enum(&self, hs: HashSet<String>) {
+    pub fn create_event_enum(&self, hs: &HashSet<String>) {
         let cx = self.extctxt();
         let mut variants: Vec<P<Variant>> = Vec::new();
-        for var_name in &hs {
+        for var_name in hs {
             let mut variant = cx.variant(
                 DUMMY_SP,
                 str_to_ident(var_name),
@@ -128,7 +128,7 @@ impl HsmGenerator {
         self.krate.borrow_mut().module.items.push(en);
     }
 
-    pub fn create_hsm_objects(&self, states: HashSet<String>) {
+    pub fn create_hsm_objects(&self, states: &HashSet<String>) {
         let cx = self.extctxt();
         let events = str_to_ident("Events");
         let st_str = str_to_ident("StateStruct");
@@ -151,7 +151,7 @@ impl HsmGenerator {
         self.krate.borrow_mut().module.items.push(x);
     }
 
-    pub fn create_state_impls(&self, hm: HashMap<String, State>) {
+    pub fn create_state_impls(&self, hm: &HashMap<String, State>) {
         let events = str_to_ident("Events");
         let states = str_to_ident("States");
         let shr_dat= str_to_ident("SharedData");
@@ -167,7 +167,7 @@ impl HsmGenerator {
             Some(cx.arm(DUMMY_SP,
                    vec!(quote_pat!(&cx, hsm::Event::$evt_ident)),
                    quote_expr!(&cx, {
-                        hsm_functions::$func_ident(self, shr_data, evt, probe);
+                        hsm_functions::$func_ident(shr_data, evt);
                         hsm::Action::Ignore
                    })
             ))
@@ -178,8 +178,8 @@ impl HsmGenerator {
         let cx = self.extctxt();
         let state_ident = str_to_ident(state.name.as_ref().unwrap());
         let mut arms: Vec<Arm> = Vec::new();
-        self.create_enter_exit_arm(&cx, &state.entry, "Enter").and_then(|x| {arms.push(x); Some(1)});
-        self.create_enter_exit_arm(&cx, &state.exit, "Exit").and_then(|x| {arms.push(x); Some(1)});
+        self.create_enter_exit_arm(&cx, &state.entry, "Enter").map(|x| arms.push(x));
+        self.create_enter_exit_arm(&cx, &state.exit, "Exit").map(|x| arms.push(x));
         for (trigger, target) in state.transitions.iter() {
             let target_ident = str_to_ident(target);
             let trigger_ident = str_to_ident(trigger);
@@ -209,5 +209,27 @@ impl HsmGenerator {
             }
         ).unwrap();
         self.krate.borrow_mut().module.items.push(x);
+    }
+
+    pub fn create_function_stubs(&self, hm: &HashMap<String, State>) {
+        let cx = self.extctxt();
+        let events = str_to_ident("Events");
+        let shr_dat= str_to_ident("SharedData");
+        let mut functions = HashSet::new();
+        hm.values().map(|s|
+            s.entry.as_ref().map(|x|
+                functions.insert(x.to_string())
+            )
+        ).count();
+        for func in functions {
+            let func_ident  = str_to_ident(&func);
+            let x = quote_item!(&cx,
+                fn $func_ident(shr_data: &mut $shr_dat, evt: hsm::Event<$events>) {
+                    unimplemented!();
+                }
+            ).unwrap();
+            self.krate.borrow_mut().module.items.push(x);
+            // println!("{}", func);
+        }
     }
 }
