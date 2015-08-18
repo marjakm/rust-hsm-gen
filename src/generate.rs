@@ -154,30 +154,44 @@ impl HsmGenerator {
         }
     }
 
+    fn create_enter_exit_arm(&self, cx: &ExtCtxt, opt_func: &Option<String>, evt_type: &str) -> Option<Arm> {
+        if let &Some(ref func_nam) = opt_func {
+            let func_ident = str_to_ident(func_nam);
+            let evt_ident = str_to_ident(evt_type);
+            Some(cx.arm(DUMMY_SP,
+                   vec!(quote_pat!(&cx, hsm::Event::$evt_ident)),
+                   quote_expr!(&cx, {
+                        hsm_functions::$func_ident(self, shr_data, evt, probe);
+                        hsm::Action::Ignore
+                   })
+            ))
+        } else { None }
+    }
+
     fn create_state_impl(&self, state: &State, events: &Ident, states: &Ident, shr_dat: &Ident) {
         let cx = self.extctxt();
         let state_ident = str_to_ident(state.name.as_ref().unwrap());
         let mut arms: Vec<Arm> = Vec::new();
-        if let Some(ref func_nam) = state.entry {
-            let func_ident = str_to_ident(func_nam);
-            arms.push(cx.arm(DUMMY_SP,
-                             vec!(quote_pat!(&cx, hsm::Event::Enter)),
-                             quote_expr!(&cx, hsm_functions::$func_ident(self, shr_data, evt, probe))
-            ));
-        }
-        if let Some(ref func_nam) = state.exit {
-            let func_ident = str_to_ident(func_nam);
-            arms.push(cx.arm(DUMMY_SP,
-                             vec!(quote_pat!(&cx, hsm::Event::Exit)),
-                             quote_expr!(&cx, hsm_functions::$func_ident(self, shr_data, evt, probe))
-            ));
-        }
+        self.create_enter_exit_arm(&cx, &state.entry, "Enter").and_then(|x| {arms.push(x); Some(1)});
+        self.create_enter_exit_arm(&cx, &state.exit, "Exit").and_then(|x| {arms.push(x); Some(1)});
         for (trigger, target) in state.transitions.iter() {
             let target_ident = str_to_ident(target);
             let trigger_ident = str_to_ident(trigger);
+            let pat = if trigger == "_" {
+                quote_pat!(&cx, $trigger_ident)
+            } else {
+                quote_pat!(&cx, hsm::Event($trigger_ident))
+            };
+            let trans = quote_expr!(&cx, hsm::Action::Transition($states::$target_ident));
             arms.push(cx.arm(DUMMY_SP,
-                             vec!(quote_pat!(&cx, hsm::Event($trigger_ident))),
-                             quote_expr!(&cx, hsm::Action::Transition($states::$target_ident))
+                             vec!(pat),
+                             quote_expr!(&cx, hsm_delayed_transition!(probe, { $trans }))
+            ));
+        };
+        if !state.transitions.contains_key("_") {
+            arms.push(cx.arm(DUMMY_SP,
+                             vec!(quote_pat!(&cx, _)),
+                             quote_expr!(&cx, hsm::Action::Parent)
             ));
         };
         let match_expr = cx.expr_match(DUMMY_SP, quote_expr!(&cx, evt), arms);
