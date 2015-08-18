@@ -108,17 +108,23 @@ impl HsmGenerator {
         let cx = self.extctxt();
         let mut variants: Vec<P<Variant>> = Vec::new();
         for var_name in &hs {
-            variants.push(P(cx.variant(
+            let mut variant = cx.variant(
                 DUMMY_SP,
                 str_to_ident(var_name),
                 Vec::new()
-            )));
+            );
+            variant.node.vis = Visibility::Inherited;
+            variants.push(P(variant));
         }
         let en = cx.item_enum(
             DUMMY_SP,
             str_to_ident("Events"),
             EnumDef{ variants: variants }
-        );
+        ).map(|mut x| {
+            x.vis = Visibility::Public;
+            x.attrs.push(quote_attr!(&cx, #[derive(Debug, Clone)]));
+            x
+        });
         self.krate.borrow_mut().module.items.push(en);
     }
 
@@ -180,7 +186,7 @@ impl HsmGenerator {
             let pat = if trigger == "_" {
                 quote_pat!(&cx, $trigger_ident)
             } else {
-                quote_pat!(&cx, hsm::Event($trigger_ident))
+                quote_pat!(&cx, hsm::Event($events::$trigger_ident))
             };
             let trans = quote_expr!(&cx, hsm::Action::Transition($states::$target_ident));
             arms.push(cx.arm(DUMMY_SP,
