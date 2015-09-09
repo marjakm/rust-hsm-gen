@@ -47,14 +47,14 @@ fn main() {
     let state_impls = xmireader.state_impls();
     // println!("state_impls: {:#?}", state_impls);
 
-    let generator = hsm_gen::HsmGenerator::new(true);
+    let mut generator = hsm_gen::HsmGenerator::new(true);
     generator.create_event_enum(&events);
     generator.create_hsm_objects(&states);
     generator.create_state_parent_impls(&state_impls);
     generator.create_state_impls(&state_impls);
     generator.print(&outp);
     if let Some(fstubfle) = fstub {
-        let gen2 = hsm_gen::HsmGenerator::new(false);
+        let mut gen2 = hsm_gen::HsmGenerator::new(false);
         gen2.create_function_stubs(&state_impls);
         gen2.print(&fstubfle);
     }
