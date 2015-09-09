@@ -23,7 +23,6 @@
  */
 use std::io::prelude::*;
 use std::fs::File;
-use std::cell::RefCell;
 use std::collections::{HashSet, HashMap};
 
 use syntax::ast::*;
@@ -44,20 +43,18 @@ use super::inner::Inner;
 
 pub struct HsmGenerator {
     inner               : Inner,
-    krate               : RefCell<Crate>,
+    krate               : Crate,
     feature_gated_cfgs  : Vec<GatedCfg>,
 
 }
 impl HsmGenerator {
     pub fn new(prefix: bool) -> Self {
         let inner = Inner::new(prefix);
-        let krate = RefCell::new(phase_1_parse_input(&inner.sess, inner.cfg.clone(), &inner.input));
-
+        let krate = phase_1_parse_input(&inner.sess, inner.cfg.clone(), &inner.input);
         HsmGenerator {
-            inner   : inner,
-            krate   : krate,
+            inner              : inner,
+            krate              : krate,
             feature_gated_cfgs : Vec::new(),
-
         }
     }
 
@@ -69,7 +66,7 @@ impl HsmGenerator {
         cx.backtrace = ExpnId::from_u32(0);
         cx.codemap().record_expansion(
             ExpnInfo {
-                call_site: self.krate.borrow().span,
+                call_site: self.krate.span,
                 callee: NameAndSpan {
                     format: ExpnFormat::CompilerExpansion(CompilerExpansionFormat::PlacementIn),
                     allow_internal_unstable: true,
@@ -95,7 +92,7 @@ impl HsmGenerator {
             let out_w: &mut Write = &mut out;
             print_crate( self.inner.sess.codemap(),
                          self.inner.sess.diagnostic(),
-                         &self.krate.borrow(),
+                         &self.krate,
                          src_nam,
                          &mut rdr,
                          box out_w,
@@ -130,7 +127,7 @@ impl HsmGenerator {
                 x
             })
         };
-        self.krate.borrow_mut().module.items.push(en);
+        self.krate.module.items.push(en);
     }
 
     pub fn create_hsm_objects(&mut self, states: &HashSet<String>) {
@@ -155,7 +152,7 @@ impl HsmGenerator {
                 ));
             ).unwrap()
         };
-        self.krate.borrow_mut().module.items.push(x);
+        self.krate.module.items.push(x);
     }
 
     pub fn create_state_parent_impls(&mut self, hm: &HashMap<String, State>) {
@@ -177,7 +174,7 @@ impl HsmGenerator {
                 hsm_state_parents!($st; $par_lst);
             ).unwrap()
         };
-        self.krate.borrow_mut().module.items.push(x);
+        self.krate.module.items.push(x);
     }
 
     pub fn create_state_impls(&mut self, hm: &HashMap<String, State>) {
@@ -239,7 +236,7 @@ impl HsmGenerator {
                 }
             ).unwrap()
         };
-        self.krate.borrow_mut().module.items.push(x);
+        self.krate.module.items.push(x);
     }
 
     pub fn create_function_stubs(&mut self, hm: &HashMap<String, State>) {
@@ -267,7 +264,7 @@ impl HsmGenerator {
                     x
                 })
             };
-            self.krate.borrow_mut().module.items.push(it);
+            self.krate.module.items.push(it);
             // println!("{}", func);
         }
     }
