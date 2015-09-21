@@ -94,22 +94,16 @@ impl<'a:'d, 'd> XmiReader<'a, 'd> {
         let mut v = HashMap::new();
         for state_node in get_ns!(self, "//subvertex[@name]").iter() {
             let mut state = State::new();
-            state.name = Some(self.get_attr(state_node, "name"));
+            state.name = Some(self.get_attr(state_node, "name").unwrap());
             if let Some(entry_node) = get_ns!(self, state_node, "entry").iter().next() {
-                state.entry = Some(self.get_attr(entry_node, "name"))
+                state.entry = Some(self.get_attr(entry_node, "name").unwrap())
             }
             if let Some(exit_node) = get_ns!(self, state_node, "exit").iter().next() {
-                state.exit = Some(self.get_attr(exit_node, "name"))
+                state.exit = Some(self.get_attr(exit_node, "name").unwrap())
             }
+            state.parent = self.parent_state_node(state_node).map(|x| self.get_attr(x, "name").unwrap());
 
-            let gp_node = state_node.parent().unwrap().parent().unwrap();
-            if let Node::Element(gp_elem) = gp_node {
-                if gp_elem.name().local_part() == "subvertex" {
-                    state.parent = Some(self.get_attr(gp_node, "name"));
-                }
-            };
-
-            v.insert(self.get_attr(state_node, "id"), state);
+            v.insert(self.get_attr(state_node, "id").unwrap(), state);
         }
         let mut nam_map = HashMap::new();
         v.iter().map(|(id, state)| nam_map.insert(
@@ -118,10 +112,10 @@ impl<'a:'d, 'd> XmiReader<'a, 'd> {
         )).count();
         for (id, state) in v.iter_mut() {
             for transition in get_ns!(self, &format!("//transition[@source='{}']", id)) {
-                if let Some(target) = nam_map.get(&self.get_attr(transition, "target")) {
+                if let Some(target) = nam_map.get(&self.get_attr(transition, "target").unwrap()) {
                     for trigger in get_ns!(self, transition, "trigger") {
                         state.transitions.insert(
-                            self.get_attr(trigger, "name"),
+                            self.get_attr(trigger, "name").unwrap(),
                             target.to_string()
                         );
                     }
@@ -131,6 +125,16 @@ impl<'a:'d, 'd> XmiReader<'a, 'd> {
             }
         }
         v
+    }
+
+    pub fn parent_state_node(&'a self, node: Node<'a>) -> Option<Node<'a>> {
+        let gp_node = node.parent().unwrap().parent().unwrap();
+        if let Node::Element(gp_elem) = gp_node {
+            if gp_elem.name().local_part() == "subvertex" {
+                return Some(gp_node)
+            }
+        }
+        None
     }
 
     pub fn events(&'a self) -> HashSet<String> {
@@ -150,13 +154,13 @@ impl<'a:'d, 'd> XmiReader<'a, 'd> {
         v
     }
 
-    fn get_attr(&self, node: Node, attr: &str) -> String {
+    fn get_attr(&self, node: Node, attr: &str) -> Option<String> {
         for a in get_attrs!(node).iter() {
             if a.name().local_part() == attr {
-                return a.value().to_string()
+                return Some(a.value().to_string())
             }
         }
-        unreachable!()
+        None
     }
 
     pub fn print_node(&self, node: Node) {
@@ -172,18 +176,5 @@ impl<'a:'d, 'd> XmiReader<'a, 'd> {
         let mut f = File::create(file).expect("Could not create file");
         println!("{:?}", doc);
         format_document(doc, &mut f).expect("Error formatting document");
-    }
-
-    pub fn test(&'a self) {
-        let doc = self.inner.doc();
-        let hello = doc.create_element("hello");
-        hello.set_attribute_value("planet", "Earth");
-        let comment = doc.create_comment("What about other planets?");
-        let text = doc.create_text("Greetings, Earthlings!");
-
-        hello.append_child(comment);
-        hello.append_child(text);
-        doc.root().append_child(hello);
-        info!("{:?}", doc);
     }
 }

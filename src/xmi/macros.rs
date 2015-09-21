@@ -23,37 +23,76 @@
  */
 macro_rules! get_ns {
     ($slf:ident, $e:expr) => {
-        if let Value::Nodeset(nodeset) = $slf.evaluate_root($e) {
+        if let ::sxd_xpath::Value::Nodeset(nodeset) = $slf.evaluate_root($e) {
             nodeset
         } else {
-            panic!("Get ns 1 panic");
+            panic!("get_ns macro: evaluate_root({}) did not return a Value::Nodeset", $e);
         }
     };
     ($slf:ident, $n:ident, $e:expr) => {
-        if let Value::Nodeset(nodeset) = $slf.evaluate($n, $e) {
+        if let ::sxd_xpath::Value::Nodeset(nodeset) = $slf.evaluate($n, $e) {
             nodeset
         } else {
-            panic!("Get ns 2 panic");
+            panic!("get_ns macro: evaluate({:?}, {}) did not return a Value::Nodeset", $n, $e);
         }
     }
 }
 
+macro_rules! get_node {
+    ($slf:ident, $e:expr) => {{
+        let ns = get_ns!($slf, $e);
+        if ns.size() == 1 {
+            ns.iter().next().unwrap()
+        } else {
+            panic!("get_node macro: required nodeset length 1, but got {}", ns.size());
+        }
+    }};
+    ($slf:ident, $n:ident, $e:expr) => {{
+        let ns = get_ns!($slf, $n, $e);
+        if ns.size() == 1 {
+            ns.iter().next().unwrap()
+        } else {
+            panic!("get_node macro: required nodeset length 1, but got {}", ns.size());
+        }
+    }}
+}
+
+macro_rules! get_node_opt {
+    ($slf:ident, $e:expr) => {{
+        let ns = get_ns!($slf, $e);
+        match ns.size() {
+            0 => None,
+            1 => Some(ns.iter().next().unwrap()),
+            _ => panic!("get_node_opt macro: required nodeset length 0 or 1, but got {}", ns.size())
+        }
+    }};
+    ($slf:ident, $n:ident, $e:expr) => {{
+        let ns = get_ns!($slf, $n, $e);
+        match ns.size() {
+            0 => None,
+            1 => Some(ns.iter().next().unwrap()),
+            _ => panic!("get_node_opt macro: required nodeset length 0 or 1, but got {}", ns.size())
+        }
+    }}
+}
+
+
 macro_rules! get_attr_val_str {
     ($i:ident) => {
-        if let Node::Attribute(x) = $i {
+        if let ::sxd_xpath::nodeset::Node::Attribute(x) = $i {
             x.value().to_string()
         } else {
-            panic!("get_attr_val_str");
+            panic!("get_attr_val_str macro: {:?} is not Node::Attribute", $i);
         }
     }
 }
 
 macro_rules! get_attrs {
     ($i:ident) => {
-        if let Node::Element(x) = $i {
+        if let ::sxd_xpath::nodeset::Node::Element(x) = $i {
             x.attributes()
         } else {
-            panic!("get_attrs");
+            panic!("get_attrs macro: {:?} is not Node::Element", $i);
         }
     }
 }

@@ -34,9 +34,10 @@ extern crate rustc_driver;
 extern crate sxd_document;
 extern crate sxd_xpath;
 
-mod generate;
+#[macro_use]
 mod xmi;
+// mod generate;
 mod state;
 
-pub use generate::HsmGenerator;
+// pub use generate::HsmGenerator;
 pub use xmi::XmiReader;
