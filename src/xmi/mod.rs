@@ -25,5 +25,8 @@
 mod macros;
 mod reader;
 mod inner;
+mod event;
+mod subvertex;
+mod transition;
 
 pub use self::reader::XmiReader;

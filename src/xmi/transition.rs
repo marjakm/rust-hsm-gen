@@ -21,40 +21,29 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-use std::collections::HashMap;
-use super::xmi::XmiReader;
 use sxd_xpath::nodeset::Node;
+use super::XmiReader;
+use super::event::Event;
 
 
-#[derive(Debug)]
-pub enum Action {
-    Ignore(Option<String>),
-    Parent(Option<String>),
-    Transition(Option<String>, String),
+pub struct Transition {
+    pub source_id: String,
+    pub target_id: String,
+    pub guard:     Option<String>,
+    pub effect:    Option<String>,
+    pub trigger:   Option<Event>,
 }
 
-#[derive(Debug)]
-pub struct CondAction {
-    pub cond:   Option<String>,
-    pub action: Action
-}
-
-#[derive(Debug)]
-pub struct State {
-    pub name        : String,
-    pub parent      : Option<String>,
-    pub entry       : Option<String>,
-    pub exit        : Option<String>,
-    pub signals     : HashMap<String, Vec<CondAction>>
-}
-impl State {
+impl Transition {
     pub fn from_xml(reader: &XmiReader, node: Node) -> Self {
-        State {
-            name        : reader.get_attr(node, "name").unwrap(),
-            parent      : reader.parent_state_node(node).map(|x| reader.get_attr(x, "name").unwrap()),
-            entry       : get_node_opt!(reader, node, "entry").map(|x| reader.get_attr(x, "name").unwrap()),
-            exit        : get_node_opt!(reader, node, "exit").map(|x| reader.get_attr(x, "name").unwrap()),
-            signals     : HashMap::new()
+        Transition {
+            source_id: reader.get_attr(node, "source").unwrap(),
+            target_id: reader.get_attr(node, "target").unwrap(),
+            guard:     get_node_opt!(reader, node, "//ownedRule/specification").map(|x| reader.get_attr(x, "value").unwrap()),
+            effect:    get_node_opt!(reader, node, "//effect/body").map(|x| x.string_value()),
+            trigger:   get_node_opt!(reader, node, "//trigger").map(|trig_node| Event::from_xml(reader,
+                get_node!(reader, &format!("//packagedElement[@id='{}']", reader.get_attr(trig_node, "event").unwrap()))
+            )),
         }
     }
 }
