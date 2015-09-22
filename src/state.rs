@@ -25,38 +25,39 @@ use std::collections::HashMap;
 use super::xmi::XmiReader;
 use sxd_xpath::nodeset::Node;
 
-pub enum Subvertex<'a> {
+pub enum Subvertex {
     Initial         {id: String},
     Final           {id: String},
 
     StateInitial    {id: String, parent_id:    String},
-    State           {id: String, node:         Node<'a>},
+    State           {id: String, state:        State},
     Junction        {id: String, transition:   Transition},
     Choice          {id: String, transitions:  Vec<Transition>},
 }
-impl<'a> Subvertex<'a> {
-    fn from_xml(reader: &XmiReader, node: Node<'a>) -> Self {
+impl Subvertex {
+    pub fn from_xml(reader: &XmiReader, node: Node) -> Self {
         let id = reader.get_attr(node, "id").unwrap();
         match reader.get_attr(node, "type").unwrap().as_str() {
-            "uml:State"       => Subvertex::State {id: id, node: node},
+            "uml:State"       => Subvertex::State {id: id, state: State::from_xml(reader, node)},
             "uml:FinalState"  => Subvertex::Final {id: id},
             "uml:Pseudostate" => {
                 if let Some(kind) = reader.get_attr(node, "kind") {
                     match kind.as_str() {
                         "junction" => Subvertex::Junction {
-                            id:         id,
+                            id:         id.clone(),
                             transition: Transition::from_xml(
                                 reader,
                                 get_node!(reader, &format!("//transition[@source='{}']", id))
                             )
                         },
                         "choice"   => {
-                            let transitions = Vec::new();
+                            let mut transitions = Vec::new();
                             for trans_node in get_ns!(reader, &format!("//transition[@source='{}']", id)) {
                                 transitions.push(Transition::from_xml(reader, trans_node));
                             }
                             Subvertex::Choice {id: id, transitions: transitions}
-                        }
+                        },
+                        _ => panic!("Pseudostate with unknown type")
                     }
                 } else {
                     match reader.parent_state_node(node).map(|x| reader.get_attr(x, "name").unwrap()) {
@@ -64,7 +65,8 @@ impl<'a> Subvertex<'a> {
                         None       => Subvertex::Initial {id: id}
                     }
                 }
-            }
+            },
+            _ => panic!("subvertex with unknown type")
         }
     }
 }
@@ -77,7 +79,7 @@ pub struct Transition {
     pub trigger:   Option<Event>,
 }
 impl Transition {
-    fn from_xml(reader: &XmiReader, node: Node) -> Self {
+    pub fn from_xml(reader: &XmiReader, node: Node) -> Self {
         let guard = get_node_opt!(reader, node, "//ownedRule/specification").map(|x| reader.get_attr(x, "value").unwrap());
         let effect = get_node_opt!(reader, node, "//effect/body").map(|x| x.string_value());
         let trigger = get_node_opt!(reader, node, "//trigger").map(|trig_node| Event::from_xml(reader,
@@ -99,14 +101,15 @@ pub enum Event {
     Any,
 }
 impl Event {
-    fn from_xml(reader: &XmiReader, node: Node) -> Self {
+    pub fn from_xml(reader: &XmiReader, node: Node) -> Self {
         match reader.get_attr(node, "type").unwrap().as_str() {
             "uml:TimeEvent"       => Event::Time {
                 id:         reader.get_attr(node, "id").unwrap(),
                 name:       reader.get_attr(node, "name").expect("TimeEvent with no name"),
                 relative:   match reader.get_attr(node, "isRelative").expect("TimeEvent without isRelative").as_str() {
                     "true"  => true,
-                    "false" => false
+                    "false" => false,
+                    _ => panic!("Relative with unknown value")
                 },
                 timeout_ms: u64::from_str_radix(
                     reader.get_attr(get_node!(reader, node, "when/expr"), "value")
@@ -119,7 +122,8 @@ impl Event {
                 id:         reader.get_attr(node, "id").unwrap(),
                 name:       reader.get_attr(node, "name").expect("SignalEvent with no name")
             },
-            "uml:AnyReceiveEvent" => Event::Any
+            "uml:AnyReceiveEvent" => Event::Any,
+            _ => panic!("Event with unknown type")
         }
     }
 }
@@ -139,20 +143,19 @@ pub struct CondAction {
 
 #[derive(Debug)]
 pub struct State {
+    pub name        : String,
     pub parent      : Option<String>,
-    pub name        : Option<String>,
     pub entry       : Option<String>,
     pub exit        : Option<String>,
     pub signals     : HashMap<String, Vec<CondAction>>
 }
-
 impl State {
-    pub fn new() -> Self {
+    pub fn from_xml(reader: &XmiReader, node: Node) -> Self {
         State {
-            parent      : None,
-            name        : None,
-            entry       : None,
-            exit        : None,
+            name        : reader.get_attr(node, "name").unwrap(),
+            parent      : reader.parent_state_node(node).map(|x| reader.get_attr(x, "name").unwrap()),
+            entry       : get_node_opt!(reader, node, "entry").map(|x| reader.get_attr(x, "name").unwrap()),
+            exit        : get_node_opt!(reader, node, "exit").map(|x| reader.get_attr(x, "name").unwrap()),
             signals     : HashMap::new()
         }
     }

@@ -23,7 +23,7 @@
  */
 #![feature(quote, rustc_private)]
 #![feature(box_syntax)]
-#![feature(result_expect)]
+#![feature(convert)]
 
 
 #[macro_use]

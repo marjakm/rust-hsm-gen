@@ -92,38 +92,38 @@ impl<'a:'d, 'd> XmiReader<'a, 'd> {
 
     pub fn state_impls(&'a self) -> HashMap<String, State> {
         let mut v = HashMap::new();
-        for state_node in get_ns!(self, "//subvertex[@name]").iter() {
-            let mut state = State::new();
-            state.name = Some(self.get_attr(state_node, "name").unwrap());
-            if let Some(entry_node) = get_ns!(self, state_node, "entry").iter().next() {
-                state.entry = Some(self.get_attr(entry_node, "name").unwrap())
-            }
-            if let Some(exit_node) = get_ns!(self, state_node, "exit").iter().next() {
-                state.exit = Some(self.get_attr(exit_node, "name").unwrap())
-            }
-            state.parent = self.parent_state_node(state_node).map(|x| self.get_attr(x, "name").unwrap());
-
-            v.insert(self.get_attr(state_node, "id").unwrap(), state);
-        }
-        let mut nam_map = HashMap::new();
-        v.iter().map(|(id, state)| nam_map.insert(
-            id.to_string(),
-            state.name.as_ref().unwrap().to_string()
-        )).count();
-        for (id, state) in v.iter_mut() {
-            for transition in get_ns!(self, &format!("//transition[@source='{}']", id)) {
-                if let Some(target) = nam_map.get(&self.get_attr(transition, "target").unwrap()) {
-                    for trigger in get_ns!(self, transition, "trigger") {
-                        state.transitions.insert(
-                            self.get_attr(trigger, "name").unwrap(),
-                            target.to_string()
-                        );
-                    }
-                } else {
-                    debug!("TODO: Handle initial and final states");
-                }
-            }
-        }
+        // for state_node in get_ns!(self, "//subvertex[@name]").iter() {
+        //     let mut state = State::new();
+        //     state.name = Some(self.get_attr(state_node, "name").unwrap());
+        //     if let Some(entry_node) = get_ns!(self, state_node, "entry").iter().next() {
+        //         state.entry = Some(self.get_attr(entry_node, "name").unwrap())
+        //     }
+        //     if let Some(exit_node) = get_ns!(self, state_node, "exit").iter().next() {
+        //         state.exit = Some(self.get_attr(exit_node, "name").unwrap())
+        //     }
+        //     state.parent = self.parent_state_node(state_node).map(|x| self.get_attr(x, "name").unwrap());
+        //
+        //     v.insert(self.get_attr(state_node, "id").unwrap(), state);
+        // }
+        // let mut nam_map = HashMap::new();
+        // v.iter().map(|(id, state)| nam_map.insert(
+        //     id.to_string(),
+        //     state.name.as_ref().unwrap().to_string()
+        // )).count();
+        // for (id, state) in v.iter_mut() {
+        //     for transition in get_ns!(self, &format!("//transition[@source='{}']", id)) {
+        //         if let Some(target) = nam_map.get(&self.get_attr(transition, "target").unwrap()) {
+        //             for trigger in get_ns!(self, transition, "trigger") {
+        //                 state.transitions.insert(
+        //                     self.get_attr(trigger, "name").unwrap(),
+        //                     target.to_string()
+        //                 );
+        //             }
+        //         } else {
+        //             debug!("TODO: Handle initial and final states");
+        //         }
+        //     }
+        // }
         v
     }
 
@@ -154,7 +154,7 @@ impl<'a:'d, 'd> XmiReader<'a, 'd> {
         v
     }
 
-    fn get_attr(&self, node: Node, attr: &str) -> Option<String> {
+    pub fn get_attr(&self, node: Node, attr: &str) -> Option<String> {
         for a in get_attrs!(node).iter() {
             if a.name().local_part() == attr {
                 return Some(a.value().to_string())
