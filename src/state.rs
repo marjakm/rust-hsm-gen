@@ -22,21 +22,22 @@
  * SOFTWARE.
  */
 use std::collections::HashMap;
-use super::xmi::XmiReader;
 use sxd_xpath::nodeset::Node;
+use super::xmi::{XmiReader, Transition};
 
 
 #[derive(Debug)]
 pub enum Action {
-    Ignore(Option<String>),
-    Parent(Option<String>),
-    Transition(Option<String>, String),
+    Ignore,
+    Parent,
+    Transition(String),
 }
 
 #[derive(Debug)]
 pub struct CondAction {
-    pub cond:   Option<String>,
-    pub action: Action
+    pub cond:     Option<String>,
+    pub activity: Option<String>,
+    pub action:   Action
 }
 
 #[derive(Debug)]
@@ -45,16 +46,43 @@ pub struct State {
     pub parent      : Option<String>,
     pub entry       : Option<String>,
     pub exit        : Option<String>,
-    pub signals     : HashMap<String, Vec<CondAction>>
+    pub actions     : HashMap<String, Vec<CondAction>>,
+    pub transitions : Vec<Transition>
 }
 impl State {
     pub fn from_xml(reader: &XmiReader, node: Node) -> Self {
+        let id = reader.get_attr(node, "id").unwrap();
+        let mut hm = HashMap::new();
+        if let Some(mut do_activ) = get_node_opt!(reader, node, "doActivity/body").map(|x| x.string_value()) {
+            let pat = [ ( "&gt;"  , ">" ),
+                        ( "&lt;"  , "<" ),
+                        ( "&amp;" , "&" ),
+                        ( "&#39;" , "\\"),
+                        ( "&quot;", "\"") ];
+            for a in &pat {
+                do_activ = do_activ.replace(a.0, a.1);
+            }
+            for group in do_activ.split("\n") {
+                let evt_activ: Vec<&str> = group.split("=>").collect();
+                if evt_activ.len() == 2 {
+                    hm.insert(evt_activ[0].to_string(), vec!(CondAction {
+                        cond    : None,
+                        activity: Some(evt_activ[1].to_string()),
+                        action  : Action::Ignore,
+                    }));
+                } else {
+                    panic!("Could not split do activity into evt and activity: {:?}", evt_activ)
+                }
+            }
+        }
         State {
             name        : reader.get_attr(node, "name").expect("State without name"),
             parent      : reader.parent_state_node(node).map(|x| reader.get_attr(x, "name").expect("State parent without name")),
             entry       : get_node_opt!(reader, node, "entry/body").map(|x| x.string_value()),
             exit        : get_node_opt!(reader, node, "exit/body").map(|x| x.string_value()),
-            signals     : HashMap::new()
+            actions     : hm,
+            transitions : get_ns!(reader, &format!("//transition[@source='{}']", id)).iter()
+                                    .map(|x| Transition::from_xml(reader, x)).collect()
         }
     }
 }
