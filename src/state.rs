@@ -47,7 +47,10 @@ pub struct State {
     pub entry       : Option<String>,
     pub exit        : Option<String>,
     pub actions     : HashMap<String, Vec<CondAction>>,
-    pub transitions : Vec<Transition>
+
+    // used only in xmi reading
+    pub transitions       : Vec<Transition>,
+    pub initial_transition: Option<Transition>
 }
 impl State {
     pub fn from_xml(reader: &XmiReader, node: Node) -> Self {
@@ -82,7 +85,23 @@ impl State {
             exit        : get_node_opt!(reader, node, "exit/body").map(|x| x.string_value()),
             actions     : hm,
             transitions : get_ns!(reader, &format!("//transition[@source='{}']", id)).iter()
-                                    .map(|x| Transition::from_xml(reader, x)).collect()
+                                    .map(|x| Transition::from_xml(reader, x)).collect(),
+            initial_transition: {
+                let opts = get_ns!(reader, node, "region/subvertex").iter().filter(|x| {
+                    reader.get_attr(x.clone(), "type").unwrap().as_str() == "uml:Pseudostate"
+                    && reader.get_attr(x.clone(), "kind").is_none()
+                }).collect::<Vec<Node>>();
+                match opts.len() {
+                    0 => None,
+                    1 => Some(Transition::from_xml(
+                        reader,
+                        get_node!(reader, &format!(
+                            "//transition[@source='{}']",
+                            reader.get_attr(opts[0], "id").unwrap()
+                    )))),
+                    _ => panic!("State {} initial state options", opts.len())
+                }
+            }
         }
     }
 }

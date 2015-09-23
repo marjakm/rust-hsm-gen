@@ -95,6 +95,8 @@ impl<'a:'d, 'd> XmiReader<'a, 'd> {
         let mut v = HashMap::new();
         let mut subvertexes = get_ns!(self, "//subvertex").iter()
                                 .map(|x| Subvertex::from_xml(self, x))
+                                .filter(|x| x.is_some())
+                                .map(|x| x.unwrap())
                                 .collect::<Vec<Subvertex>>();
         debug!("{:#?}", subvertexes);
         // for state_node in get_ns!(self, "//subvertex[@name]").iter() {
