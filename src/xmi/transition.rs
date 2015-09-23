@@ -48,12 +48,10 @@ impl Transition {
                 }
             ),
             effect:    get_node_opt!(reader, node, "effect/body").map(|x| x.string_value()),
-            trigger:   get_node_opt!(reader, node, "trigger").map(|trig_node| Event::from_xml(reader,
-                get_node!(reader,
-                          &format!("//packagedElement[@id='{}']",
-                          reader.get_attr(trig_node, "event").expect("Transition trigger without event"))
-                )
-            )),
+            trigger:   get_node_opt!(reader, node, "trigger").map(|trig_node| Event::from_xml(reader, {
+                let evt_id = reader.get_attr(trig_node, "event").expect("Transition trigger without event");
+                get_ns!(reader, "//packagedElement").iter().filter(|x| reader.get_attr(x.clone(), "id").unwrap() == evt_id).next().unwrap()
+            })),
         }
     }
 }
