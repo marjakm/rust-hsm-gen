@@ -26,7 +26,7 @@ use super::XmiReader;
 use super::transition::Transition;
 use ::state::State;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Subvertex {
     Initial         {id: String},
     Final           {id: String},

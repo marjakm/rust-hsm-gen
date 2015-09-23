@@ -92,46 +92,34 @@ impl<'a:'d, 'd> XmiReader<'a, 'd> {
     }
 
     pub fn state_impls(&'a self) -> HashMap<String, State> {
-        let mut v = HashMap::new();
-        let mut subvertexes = get_ns!(self, "//subvertex").iter()
+        let mut sm = HashMap::new();
+        let mut vm = HashMap::new();
+
+        let subvertexes = get_ns!(self, "//subvertex").iter()
                                 .map(|x| Subvertex::from_xml(self, x))
                                 .filter(|x| x.is_some())
                                 .map(|x| x.unwrap())
                                 .collect::<Vec<Subvertex>>();
-        debug!("{:#?}", subvertexes);
-        // for state_node in get_ns!(self, "//subvertex[@name]").iter() {
-        //     let mut state = State::new();
-        //     state.name = Some(self.get_attr(state_node, "name").unwrap());
-        //     if let Some(entry_node) = get_ns!(self, state_node, "entry").iter().next() {
-        //         state.entry = Some(self.get_attr(entry_node, "name").unwrap())
-        //     }
-        //     if let Some(exit_node) = get_ns!(self, state_node, "exit").iter().next() {
-        //         state.exit = Some(self.get_attr(exit_node, "name").unwrap())
-        //     }
-        //     state.parent = self.parent_state_node(state_node).map(|x| self.get_attr(x, "name").unwrap());
-        //
-        //     v.insert(self.get_attr(state_node, "id").unwrap(), state);
-        // }
-        // let mut nam_map = HashMap::new();
-        // v.iter().map(|(id, state)| nam_map.insert(
-        //     id.to_string(),
-        //     state.name.as_ref().unwrap().to_string()
-        // )).count();
-        // for (id, state) in v.iter_mut() {
-        //     for transition in get_ns!(self, &format!("//transition[@source='{}']", id)) {
-        //         if let Some(target) = nam_map.get(&self.get_attr(transition, "target").unwrap()) {
-        //             for trigger in get_ns!(self, transition, "trigger") {
-        //                 state.transitions.insert(
-        //                     self.get_attr(trigger, "name").unwrap(),
-        //                     target.to_string()
-        //                 );
-        //             }
-        //         } else {
-        //             debug!("TODO: Handle initial and final states");
-        //         }
-        //     }
-        // }
-        v
+        // debug!("{:#?}", subvertexes);
+        subvertexes.into_iter().map(|subvertex|
+            match subvertex {
+                Subvertex::Initial  {ref id}                   => { vm.insert(id.clone(), subvertex.clone() ); },
+                Subvertex::Final    {ref id}                   => { vm.insert(id.clone(), subvertex.clone() ); },
+                Subvertex::State    {ref id, ref state}        => { sm.insert(id.clone(), state.clone()     ); },
+                Subvertex::Junction {ref id, ref transition}   => { vm.insert(id.clone(), subvertex.clone() ); },
+                Subvertex::Choice   {ref id, ref transitions}  => { vm.insert(id.clone(), subvertex.clone() ); },
+            }
+        ).count();
+        // debug!("{:#?}", sm);
+        for key in sm.keys().map(|x| x.to_string()).collect::<Vec<String>>().iter() {
+            let mut state = sm.remove(key).unwrap();
+            while let Some(trans) = state.transitions.pop() {
+                state.add_action(trans, &sm, &vm);
+            }
+            sm.insert(key.to_string(), state);
+        }
+        debug!("{:#?}", sm);
+        sm
     }
 
     pub fn parent_state_node(&'a self, node: Node<'a>) -> Option<Node<'a>> {

@@ -26,7 +26,7 @@ use sxd_xpath::nodeset::Node;
 use super::xmi::{XmiReader, Transition, Subvertex, Event};
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Action {
     Ignore,
     Parent,
@@ -62,7 +62,7 @@ impl Action {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CondAction {
     pub guard:  Option<String>,
     pub effect: Option<String>,
@@ -79,7 +79,7 @@ impl CondAction {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct State {
     pub name        : String,
     pub parent      : Option<String>,
@@ -150,7 +150,7 @@ impl State {
         }
     }
 
-    fn add_action(&mut self, mut t: Transition, sm: &HashMap<String, State>, vm: &HashMap<String, Subvertex>) {
+    pub fn add_action(&mut self, mut t: Transition, sm: &HashMap<String, State>, vm: &HashMap<String, Subvertex>) {
         match t.trigger.take() {
             Some(evt) => {
                 let ca = CondAction::from_transition(t, sm, vm);
@@ -161,7 +161,7 @@ impl State {
                 self.actions.insert(evt, vec!(ca));
                 return
             },
-            None => panic!("ActionMap add_transition without trigger")
+            None => panic!("ActionMap add_transition without trigger {:?}", t)
         }
     }
 }
