@@ -23,7 +23,7 @@
  */
 use std::collections::HashMap;
 use sxd_xpath::nodeset::Node;
-use super::xmi::{XmiReader, Transition};
+use super::xmi::{XmiReader, Transition, Subvertex, Event};
 
 
 #[derive(Debug)]
@@ -31,13 +31,52 @@ pub enum Action {
     Ignore,
     Parent,
     Transition(String),
+    Diverge(Vec<CondAction>)
+}
+impl Action {
+    fn from_transition(t: &Transition, sm: &HashMap<String, State>, vm: &HashMap<String, Subvertex>) -> Self {
+        assert!(t.guard.is_none());
+        assert!(t.effect.is_none());
+        assert!(t.trigger.is_none());
+
+        if let Some(state) = sm.get(&t.target_id) {
+            match state.initial_transition {
+                Some(ref trans) => Self::from_transition(trans, sm, vm),
+                None            => Action::Transition(state.name.clone())
+            }
+        } else {
+            if let Some(subvertex) = vm.get(&t.target_id) {
+                match *subvertex {
+                    Subvertex::Initial  {..}                   => panic!("Transition to initial state is forbidden"),
+                    Subvertex::Final    {..}                   => panic!("Implement transition to final state"),
+                    Subvertex::State    {ref state, ..}        => panic!("CondAction get_target: found state in subvertex map"),
+                    Subvertex::Junction {ref transition, ..}   => Self::from_transition(&transition, sm, vm),
+                    Subvertex::Choice   {ref transitions, ..}  => Action::Diverge(
+                        transitions.iter().map(|x| CondAction::from_transition((*x).clone(), sm, vm)).collect()
+                    ),
+                }
+            } else {
+                panic!("CondAction get_target: target_id {} not in subvertex map", t.target_id)
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
 pub struct CondAction {
-    pub cond:     Option<String>,
-    pub activity: Option<String>,
-    pub action:   Action
+    pub guard:  Option<String>,
+    pub effect: Option<String>,
+    pub action: Action
+}
+impl CondAction {
+    fn from_transition(mut t: Transition, sm: &HashMap<String, State>, vm: &HashMap<String, Subvertex>) -> Self {
+        assert!(t.trigger.is_none());
+        CondAction {
+            guard:  t.guard.take(),
+            effect: t.effect.take(),
+            action: Action::from_transition(&t, sm, vm),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -46,7 +85,7 @@ pub struct State {
     pub parent      : Option<String>,
     pub entry       : Option<String>,
     pub exit        : Option<String>,
-    pub actions     : HashMap<String, Vec<CondAction>>,
+    pub actions     : HashMap<Event, Vec<CondAction>>,
 
     // used only in xmi reading
     pub transitions       : Vec<Transition>,
@@ -68,11 +107,17 @@ impl State {
             for group in do_activ.split("\n") {
                 let evt_activ: Vec<&str> = group.split("=>").collect();
                 if evt_activ.len() == 2 {
-                    hm.insert(evt_activ[0].to_string(), vec!(CondAction {
-                        cond    : None,
-                        activity: Some(evt_activ[1].to_string()),
-                        action  : Action::Ignore,
-                    }));
+                    hm.insert(
+                        Event::Signal {
+                            id  : "DUMMY".to_string(),
+                            name: evt_activ[0].to_string()
+                        },
+                        vec!(CondAction {
+                            guard   : None,
+                            effect  : Some(evt_activ[1].to_string()),
+                            action  : Action::Ignore,
+                        })
+                    );
                 } else {
                     panic!("Could not split do activity into evt and activity: {:?}", evt_activ)
                 }
@@ -102,6 +147,21 @@ impl State {
                     _ => panic!("State {} initial state options", opts.len())
                 }
             }
+        }
+    }
+
+    fn add_action(&mut self, mut t: Transition, sm: &HashMap<String, State>, vm: &HashMap<String, Subvertex>) {
+        match t.trigger.take() {
+            Some(evt) => {
+                let ca = CondAction::from_transition(t, sm, vm);
+                if let Some(cond_act_vec) = self.actions.get_mut(&evt) {
+                    cond_act_vec.push(ca);
+                    return
+                }
+                self.actions.insert(evt, vec!(ca));
+                return
+            },
+            None => panic!("ActionMap add_transition without trigger")
         }
     }
 }

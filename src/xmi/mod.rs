@@ -31,3 +31,5 @@ mod transition;
 
 pub use self::reader::XmiReader;
 pub use self::transition::Transition;
+pub use self::subvertex::Subvertex;
+pub use self::event::Event;

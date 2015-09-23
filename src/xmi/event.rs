@@ -24,7 +24,7 @@
 use sxd_xpath::nodeset::Node;
 use super::XmiReader;
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub enum Event {
     Time   {id: String, name: String, relative: bool, timeout_ms: u64},
     Signal {id: String, name: String},

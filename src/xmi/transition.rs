@@ -26,7 +26,7 @@ use super::XmiReader;
 use super::event::Event;
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Transition {
     pub source_id: String,
     pub target_id: String,
