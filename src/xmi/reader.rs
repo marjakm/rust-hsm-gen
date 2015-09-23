@@ -33,8 +33,9 @@ use sxd_xpath::{Value,Functions,Variables,Namespaces,Factory,EvaluationContext,E
 use sxd_xpath::function::register_core_functions;
 use sxd_xpath::nodeset::Node;
 
-use super::super::state::State;
+use ::state::State;
 use super::inner::InnerXmiReader;
+use super::subvertex::Subvertex;
 
 
 pub struct XmiReader<'a, 'd> {
@@ -92,6 +93,10 @@ impl<'a:'d, 'd> XmiReader<'a, 'd> {
 
     pub fn state_impls(&'a self) -> HashMap<String, State> {
         let mut v = HashMap::new();
+        let mut subvertexes = get_ns!(self, "//subvertex").iter()
+                                .map(|x| Subvertex::from_xml(self, x))
+                                .collect::<Vec<Subvertex>>();
+        debug!("{:#?}", subvertexes);
         // for state_node in get_ns!(self, "//subvertex[@name]").iter() {
         //     let mut state = State::new();
         //     state.name = Some(self.get_attr(state_node, "name").unwrap());

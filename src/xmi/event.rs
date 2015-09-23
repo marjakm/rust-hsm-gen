@@ -24,7 +24,7 @@
 use sxd_xpath::nodeset::Node;
 use super::XmiReader;
 
-
+#[derive(Debug)]
 pub enum Event {
     Time   {id: String, name: String, relative: bool, timeout_ms: u64},
     Signal {id: String, name: String},
@@ -47,7 +47,7 @@ impl Event {
                         .expect("TimeEvent without timeout")
                         .as_str(),
                     10
-                ).unwrap()
+                ).expect("Event timeout_ms from_str_radix")
             },
             "uml:SignalEvent"     => Event::Signal {
                 id:         reader.get_attr(node, "id").unwrap(),

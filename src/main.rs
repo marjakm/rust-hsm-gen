@@ -21,6 +21,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+#![allow(unused_variables, dead_code)]
+
 #[macro_use]
 extern crate log;
 extern crate fern;

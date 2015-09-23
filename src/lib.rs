@@ -24,6 +24,7 @@
 #![feature(quote, rustc_private)]
 #![feature(box_syntax)]
 #![feature(convert)]
+#![allow(unused_variables, dead_code)]
 
 
 #[macro_use]

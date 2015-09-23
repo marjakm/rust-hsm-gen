@@ -26,7 +26,7 @@ use super::XmiReader;
 use super::transition::Transition;
 use ::state::State;
 
-
+#[derive(Debug)]
 pub enum Subvertex {
     Initial         {id: String},
     Final           {id: String},
@@ -63,7 +63,7 @@ impl Subvertex {
                         _ => panic!("Pseudostate with unknown type")
                     }
                 } else {
-                    match reader.parent_state_node(node).map(|x| reader.get_attr(x, "name").unwrap()) {
+                    match reader.parent_state_node(node).map(|x| reader.get_attr(x, "name").expect("Subvertex parent state without name")) {
                         Some(p_id) => Subvertex::StateInitial {id: id, parent_id: p_id},
                         None       => Subvertex::Initial {id: id}
                     }

@@ -26,6 +26,7 @@ use super::XmiReader;
 use super::event::Event;
 
 
+#[derive(Debug)]
 pub struct Transition {
     pub source_id: String,
     pub target_id: String,
@@ -37,12 +38,21 @@ pub struct Transition {
 impl Transition {
     pub fn from_xml(reader: &XmiReader, node: Node) -> Self {
         Transition {
-            source_id: reader.get_attr(node, "source").unwrap(),
-            target_id: reader.get_attr(node, "target").unwrap(),
-            guard:     get_node_opt!(reader, node, "//ownedRule/specification").map(|x| reader.get_attr(x, "value").unwrap()),
-            effect:    get_node_opt!(reader, node, "//effect/body").map(|x| x.string_value()),
-            trigger:   get_node_opt!(reader, node, "//trigger").map(|trig_node| Event::from_xml(reader,
-                get_node!(reader, &format!("//packagedElement[@id='{}']", reader.get_attr(trig_node, "event").unwrap()))
+            source_id: reader.get_attr(node, "source").expect("Transition without source"),
+            target_id: reader.get_attr(node, "target").expect("Transition without target"),
+            guard:     get_node_opt!(reader, node, "ownedRule/specification").map(|x|
+                match reader.get_attr(x, "type").unwrap().as_str() {
+                    "uml:OpaqueExpression" => get_node!(reader, x, "body").string_value(),
+                    "uml:LiteralString"    => reader.get_attr(x, "value").expect("Transition guard without value"),
+                    _ => panic!("Transition guard specification type unknown")
+                }
+            ),
+            effect:    get_node_opt!(reader, node, "effect/body").map(|x| x.string_value()),
+            trigger:   get_node_opt!(reader, node, "trigger").map(|trig_node| Event::from_xml(reader,
+                get_node!(reader,
+                          &format!("//packagedElement[@id='{}']",
+                          reader.get_attr(trig_node, "event").expect("Transition trigger without event"))
+                )
             )),
         }
     }

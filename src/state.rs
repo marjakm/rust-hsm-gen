@@ -50,10 +50,10 @@ pub struct State {
 impl State {
     pub fn from_xml(reader: &XmiReader, node: Node) -> Self {
         State {
-            name        : reader.get_attr(node, "name").unwrap(),
-            parent      : reader.parent_state_node(node).map(|x| reader.get_attr(x, "name").unwrap()),
-            entry       : get_node_opt!(reader, node, "entry").map(|x| reader.get_attr(x, "name").unwrap()),
-            exit        : get_node_opt!(reader, node, "exit").map(|x| reader.get_attr(x, "name").unwrap()),
+            name        : reader.get_attr(node, "name").expect("State without name"),
+            parent      : reader.parent_state_node(node).map(|x| reader.get_attr(x, "name").expect("State parent without name")),
+            entry       : get_node_opt!(reader, node, "entry/body").map(|x| x.string_value()),
+            exit        : get_node_opt!(reader, node, "exit/body").map(|x| x.string_value()),
             signals     : HashMap::new()
         }
     }
