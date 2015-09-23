@@ -44,7 +44,7 @@ macro_rules! get_node {
         if ns.size() == 1 {
             ns.iter().next().unwrap()
         } else {
-            panic!("get_node macro: required nodeset length 1, but got {}", ns.size());
+            panic!("get_node macro: required nodeset length 1, but got {} with expr {}", ns.size(), $e)
         }
     }};
     ($slf:ident, $n:ident, $e:expr) => {{
@@ -52,7 +52,7 @@ macro_rules! get_node {
         if ns.size() == 1 {
             ns.iter().next().unwrap()
         } else {
-            panic!("get_node macro: required nodeset length 1, but got {}", ns.size());
+            panic!("get_node macro: required nodeset length 1, but got {} under node {:?} with expr {}", ns.size(), $n, $e)
         }
     }}
 }
@@ -63,7 +63,7 @@ macro_rules! get_node_opt {
         match ns.size() {
             0 => None,
             1 => Some(ns.iter().next().unwrap()),
-            _ => panic!("get_node_opt macro: required nodeset length 0 or 1, but got {}", ns.size())
+            _ => panic!("get_node_opt macro: required nodeset length 0 or 1, but got {} with expr {}", ns.size(), $e)
         }
     }};
     ($slf:ident, $n:ident, $e:expr) => {{
@@ -71,7 +71,7 @@ macro_rules! get_node_opt {
         match ns.size() {
             0 => None,
             1 => Some(ns.iter().next().unwrap()),
-            _ => panic!("get_node_opt macro: required nodeset length 0 or 1, but got {}", ns.size())
+            _ => panic!("get_node_opt macro: required nodeset length 0 or 1, but got {} under node {:?} with expr {}", ns.size(), $n, $e)
         }
     }}
 }
