@@ -21,16 +21,24 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-mod action;
-mod condaction;
-mod event;
-mod state;
-mod subvertex;
-mod transition;
+use std::collections::HashMap;
+use super::{Transition, Subvertex, Action, State};
 
-pub use self::action::Action;
-pub use self::condaction::CondAction;
-pub use self::event::Event;
-pub use self::state::State;
-pub use self::transition::Transition;
-pub use self::subvertex::Subvertex;
+
+#[derive(Debug, Clone)]
+pub struct CondAction {
+    pub guard:  Option<String>,
+    pub effect: Option<String>,
+    pub action: Action
+}
+
+impl CondAction {
+    pub fn from_transition(mut t: Transition, sm: &HashMap<String, State>, vm: &HashMap<String, Subvertex>) -> Self {
+        assert!(t.trigger.is_none());
+        CondAction {
+            guard:  t.guard.take(),
+            effect: t.effect.take(),
+            action: Action::from_transition(&t, sm, vm),
+        }
+    }
+}

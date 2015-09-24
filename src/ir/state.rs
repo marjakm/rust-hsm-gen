@@ -24,61 +24,8 @@
 use std::collections::HashMap;
 use sxd_xpath::nodeset::Node;
 use ::XmiReader;
-use super::{Transition, Subvertex, Event};
+use super::{Transition, Subvertex, Event, CondAction, Action};
 
-
-#[derive(Debug, Clone)]
-pub enum Action {
-    Ignore,
-    Parent,
-    Transition(String),
-    Diverge(Vec<CondAction>)
-}
-impl Action {
-    fn from_transition(t: &Transition, sm: &HashMap<String, State>, vm: &HashMap<String, Subvertex>) -> Self {
-        assert!(t.guard.is_none());
-        assert!(t.effect.is_none());
-        assert!(t.trigger.is_none());
-
-        if let Some(state) = sm.get(&t.target_id) {
-            match state.initial_transition {
-                Some(ref trans) => Self::from_transition(trans, sm, vm),
-                None            => Action::Transition(state.name.clone())
-            }
-        } else {
-            if let Some(subvertex) = vm.get(&t.target_id) {
-                match *subvertex {
-                    Subvertex::Initial  {..}                   => panic!("Transition to initial state is forbidden"),
-                    Subvertex::Final    {..}                   => panic!("Implement transition to final state"),
-                    Subvertex::State    {ref state, ..}        => panic!("CondAction get_target: found state in subvertex map"),
-                    Subvertex::Junction {ref transition, ..}   => Self::from_transition(&transition, sm, vm),
-                    Subvertex::Choice   {ref transitions, ..}  => Action::Diverge(
-                        transitions.iter().map(|x| CondAction::from_transition((*x).clone(), sm, vm)).collect()
-                    ),
-                }
-            } else {
-                panic!("CondAction get_target: target_id {} not in subvertex map", t.target_id)
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct CondAction {
-    pub guard:  Option<String>,
-    pub effect: Option<String>,
-    pub action: Action
-}
-impl CondAction {
-    fn from_transition(mut t: Transition, sm: &HashMap<String, State>, vm: &HashMap<String, Subvertex>) -> Self {
-        assert!(t.trigger.is_none());
-        CondAction {
-            guard:  t.guard.take(),
-            effect: t.effect.take(),
-            action: Action::from_transition(&t, sm, vm),
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct State {
@@ -92,6 +39,7 @@ pub struct State {
     pub transitions       : Vec<Transition>,
     pub initial_transition: Option<Transition>
 }
+
 impl State {
     pub fn from_xml(reader: &XmiReader, node: Node) -> Self {
         let id = reader.get_attr(node, "id").unwrap();
