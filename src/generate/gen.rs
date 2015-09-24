@@ -35,7 +35,7 @@ use syntax::codemap::{ExpnId, ExpnInfo, ExpnFormat, CompilerExpansionFormat, Nam
 use syntax::feature_gate::GatedCfg;
 use rustc_driver::driver::phase_1_parse_input;
 
-use ::ir::State;
+use ::ir::{State, Event};
 use super::inner::Inner;
 
 
@@ -102,41 +102,74 @@ impl HsmGenerator {
         f.write(&out).expect("Could not write to file");
     }
 
-    pub fn create_event_enum(&mut self, hs: &HashSet<String>) {
-        let en = {
-            let cx = self.extctxt();
-            let mut variants: Vec<P<Variant>> = Vec::new();
-            for var_name in hs {
-                let mut variant = cx.variant(
-                    DUMMY_SP,
-                    str_to_ident(var_name),
-                    Vec::new()
-                );
-                variant.node.vis = Visibility::Inherited;
-                variants.push(P(variant));
-            }
-            cx.item_enum(
+    fn create_enum(&mut self, name: &str, vm: HashMap<String, Option<String>>) -> P<Item> {
+        let cx = self.extctxt();
+        let mut variants: Vec<P<Variant>> = Vec::new();
+        for (var_name, opt_intern) in vm.iter() {
+            let mut variant = cx.variant(
                 DUMMY_SP,
-                str_to_ident("Events"),
-                EnumDef{ variants: variants }
-            ).map(|mut x| {
-                x.vis = Visibility::Public;
-                x.attrs.push(quote_attr!(&cx, #[derive(Debug, Clone)]));
-                x
-            })
-        };
-        self.krate.module.items.push(en);
+                str_to_ident(var_name),
+                { if let Some(int_name) = opt_intern.as_ref() {
+                    vec!(cx.ty_ident(DUMMY_SP, str_to_ident(int_name)))
+                } else {
+                    Vec::new()
+                }}
+            );
+            variant.node.vis = Visibility::Inherited;
+            variants.push(P(variant));
+        }
+        cx.item_enum(
+            DUMMY_SP,
+            str_to_ident(name),
+            EnumDef{ variants: variants }
+        ).map(|mut x| {
+            x.vis = Visibility::Public;
+            x.attrs.push(quote_attr!(&cx, #[derive(Debug, Clone)]));
+            x
+        })
     }
 
-    pub fn create_hsm_objects(&mut self, states: &HashSet<String>) {
+    pub fn create_event_enum(&mut self, hm: &HashMap<String, State>) {
+        let mut time_evts: HashMap<String, Option<String>> = HashMap::new();
+        let mut signals  : HashMap<String, Option<String>> = HashMap::new();
+        signals.insert("Timeout".to_string(), Some("Timeout".to_string()));
+        hm.values().map(|x| x.actions.keys().map(|e| match *e {
+            Event::Signal {ref name, ..} => {
+                let nam_parts = name.split("(").collect::<Vec<&str>>();
+                let int_val = {
+                    if nam_parts.len() == 1 {
+                        None
+                    } else {
+                        let int_parts = nam_parts[1].split("::").collect::<Vec<&str>>();
+                        if int_parts.len() == 1 {
+                            Some(nam_parts[0].to_string())
+                        } else {
+                            Some(int_parts[0].to_string())
+                        }
+                    }
+                };
+                signals.insert(nam_parts[0].to_string(), int_val);
+            },
+            Event::Time   {ref name, ..} => { time_evts.insert(name.to_string(), None); },
+            _ => {},
+        }).count()).count();
+        // debug!("{:#?}", time_evts);
+        // debug!("{:#?}", signals);
+        let time_enum = self.create_enum("Timeout", time_evts);
+        self.krate.module.items.push(time_enum);
+        let event_enum = self.create_enum("Events", signals);
+        self.krate.module.items.push(event_enum);
+    }
+
+    pub fn create_hsm_objects(&mut self, hm: &HashMap<String, State>) {
         let x = {
             let cx = self.extctxt();
             let events = str_to_ident("Events");
             let st_str = str_to_ident("StateStruct");
             let st     = str_to_ident("States");
             let shr_dat= str_to_ident("SharedData");
-            let states: Vec<TokenTree> = states
-                .iter()
+            let states: Vec<TokenTree> = hm
+                .keys()
                 .map(|st_nam| vec![Token::Ident(str_to_ident(st_nam), IdentStyle::Plain)])
                 .collect::<Vec<_>>()
                 .join(&Token::Comma)
