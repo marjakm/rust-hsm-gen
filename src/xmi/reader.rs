@@ -33,9 +33,8 @@ use sxd_xpath::{Value,Functions,Variables,Namespaces,Factory,EvaluationContext,E
 use sxd_xpath::function::register_core_functions;
 use sxd_xpath::nodeset::Node;
 
-use ::state::State;
+use ::ir::{State, Subvertex};
 use super::inner::InnerXmiReader;
-use super::subvertex::Subvertex;
 
 
 pub struct XmiReader<'a, 'd> {

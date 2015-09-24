@@ -22,7 +22,8 @@
  * SOFTWARE.
  */
 use sxd_xpath::nodeset::Node;
-use super::XmiReader;
+use ::XmiReader;
+
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub enum Event {

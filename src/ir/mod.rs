@@ -21,24 +21,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-#![feature(quote, rustc_private)]
-#![feature(box_syntax)]
-#![feature(convert)]
-#![allow(unused_variables, dead_code)]
+mod event;
+mod state;
+mod subvertex;
+mod transition;
 
-
-#[macro_use]
-extern crate log;
-extern crate syntax;
-extern crate rustc;
-extern crate rustc_driver;
-extern crate sxd_document;
-extern crate sxd_xpath;
-
-#[macro_use]
-mod xmi;
-// mod generate;
-mod ir;
-
-// pub use generate::HsmGenerator;
-pub use xmi::XmiReader;
+pub use self::event::Event;
+pub use self::state::State;
+pub use self::transition::Transition;
+pub use self::subvertex::Subvertex;

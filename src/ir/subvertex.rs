@@ -22,9 +22,9 @@
  * SOFTWARE.
  */
 use sxd_xpath::nodeset::Node;
-use super::XmiReader;
-use super::transition::Transition;
-use ::state::State;
+use ::XmiReader;
+use super::{State, Transition};
+
 
 #[derive(Debug, Clone)]
 pub enum Subvertex {

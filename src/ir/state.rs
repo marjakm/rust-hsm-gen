@@ -23,7 +23,8 @@
  */
 use std::collections::HashMap;
 use sxd_xpath::nodeset::Node;
-use super::xmi::{XmiReader, Transition, Subvertex, Event};
+use ::XmiReader;
+use super::{Transition, Subvertex, Event};
 
 
 #[derive(Debug, Clone)]

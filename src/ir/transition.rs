@@ -22,8 +22,8 @@
  * SOFTWARE.
  */
 use sxd_xpath::nodeset::Node;
-use super::XmiReader;
-use super::event::Event;
+use ::XmiReader;
+use super::Event;
 
 
 #[derive(Debug, Clone)]
