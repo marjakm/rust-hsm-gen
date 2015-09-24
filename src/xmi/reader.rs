@@ -24,7 +24,6 @@
 use std::io::prelude::*;
 use std::fs::File;
 use std::collections::HashMap;
-use std::collections::HashSet;
 
 use sxd_document::Package;
 use sxd_document::writer::format_document;
@@ -90,7 +89,7 @@ impl<'a:'d, 'd> XmiReader<'a, 'd> {
         xpath.evaluate(&context).ok().unwrap()
     }
 
-    pub fn state_impls(&'a self) -> HashMap<String, State> {
+    pub fn read_states(&'a self) -> HashMap<String, State> {
         let mut sm = HashMap::new();
         let mut vm = HashMap::new();
 
@@ -110,6 +109,7 @@ impl<'a:'d, 'd> XmiReader<'a, 'd> {
             }
         ).count();
         // debug!("{:#?}", sm);
+        // Convert transitions to condactions
         for key in sm.keys().map(|x| x.to_string()).collect::<Vec<String>>().iter() {
             let mut state = sm.remove(key).unwrap();
             while let Some(trans) = state.transitions.pop() {
@@ -117,7 +117,13 @@ impl<'a:'d, 'd> XmiReader<'a, 'd> {
             }
             sm.insert(key.to_string(), state);
         }
-        debug!("{:#?}", sm);
+        // debug!("{:#?}", sm);
+        // Replace hashmap keys with state names
+        for key in sm.keys().map(|x| x.to_string()).collect::<Vec<String>>().iter() {
+            let state = sm.remove(key).unwrap();
+            sm.insert(state.name.clone(), state);
+        }
+        // debug!("{:#?}", sm);
         sm
     }
 
@@ -129,23 +135,6 @@ impl<'a:'d, 'd> XmiReader<'a, 'd> {
             }
         }
         None
-    }
-
-    pub fn events(&'a self) -> HashSet<String> {
-        let mut v = HashSet::new();
-        for node in get_ns!(self, "//trigger/@name").iter() {
-            v.insert(get_attr_val_str!(node));
-        }
-        v.remove("_");
-        v
-    }
-
-    pub fn states(&'a self) -> HashSet<String> {
-        let mut v = HashSet::new();
-        for node in get_ns!(self, "//subvertex/@name").iter() {
-            v.insert(get_attr_val_str!(node));
-        }
-        v
     }
 
     pub fn get_attr(&self, node: Node, attr: &str) -> Option<String> {

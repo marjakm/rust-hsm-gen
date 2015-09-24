@@ -39,15 +39,8 @@ fn main() {
     conf_logger();
     let (inp, outp, fstub) = get_options();
     let xmireader = hsm_gen::XmiReader::from_file(&inp);
-    // xmireader.test();
     // xmireader.print(&outp);
-
-    let states = xmireader.states();
-    // println!("states: {:?}", states);
-    let events = xmireader.events();
-    // println!("events: {:?}", events);
-    let state_impls = xmireader.state_impls();
-    // println!("state_impls: {:#?}", state_impls);
+    let states = xmireader.read_states();
 
     // let mut generator = hsm_gen::HsmGenerator::new(true);
     // generator.create_event_enum(&events);
