@@ -46,7 +46,7 @@ fn main() {
     generator.create_event_enum(&states);
     generator.create_hsm_objects(&states);
     generator.create_state_parent_impls(&states);
-    // generator.create_state_impls(&state_impls);
+    generator.create_state_impls(&states);
     generator.print(&outp);
     // if let Some(fstubfle) = fstub {
     //     let mut gen2 = hsm_gen::HsmGenerator::new(false);

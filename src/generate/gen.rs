@@ -35,7 +35,7 @@ use syntax::codemap::{ExpnId, ExpnInfo, ExpnFormat, CompilerExpansionFormat, Nam
 use syntax::feature_gate::GatedCfg;
 use rustc_driver::driver::phase_1_parse_input;
 
-use ::ir::{State, Event};
+use ::ir::{State, Event, CondAction, Action};
 use super::inner::Inner;
 
 
@@ -208,71 +208,164 @@ impl HsmGenerator {
         self.krate.module.items.push(x);
     }
 
-    /*
     pub fn create_state_impls(&mut self, hm: &HashMap<String, State>) {
         let events = str_to_ident("Events");
         let states = str_to_ident("States");
         let shr_dat= str_to_ident("SharedData");
-        for state in hm.values() {
-            self.create_state_impl(state, &events, &states, &shr_dat);
+        let timeout= str_to_ident("Timeout");
+        let mut states_vec = hm.iter().collect::<Vec<(&String, &State)>>();
+        states_vec.sort_by(|a,b| a.0.cmp(b.0));
+        for state in states_vec.iter().map(|x| x.1) {
+            let st_impl = self.create_state_impl(state, &events, &states, &shr_dat, &timeout);
+            self.krate.module.items.push(st_impl);
         }
     }
-    */
 
-    fn create_enter_exit_arm(cx: &ExtCtxt, opt_func: &Option<String>, evt_type: &str) -> Option<Arm> {
+    fn create_enter_exit_arm(cx: &ExtCtxt, opt_func: &Option<String>, evt_type: &str, extra: Vec<P<Expr>>) -> Option<Arm> {
         if let &Some(ref func_nam) = opt_func {
             let func_ident = str_to_ident(func_nam);
             let evt_ident = str_to_ident(evt_type);
             Some(cx.arm(DUMMY_SP,
                    vec!(quote_pat!(&cx, hsm::Event::$evt_ident)),
                    quote_expr!(&cx, {
-                        hsm_functions::$func_ident(shr_data, evt);
+                        $func_ident;
+                        $extra;
                         hsm::Action::Ignore
                    })
             ))
-        } else { None }
+        } else {
+            if extra.len() > 0 {
+                let evt_ident = str_to_ident(evt_type);
+                Some(cx.arm(DUMMY_SP,
+                       vec!(quote_pat!(&cx, hsm::Event::$evt_ident)),
+                       quote_expr!(&cx, {
+                            $extra;
+                            hsm::Action::Ignore
+                       })
+                ))
+            } else {
+                None
+            }
+        }
     }
 
-    /*
-    fn create_state_impl(&mut self, state: &State, events: &Ident, states: &Ident, shr_dat: &Ident) {
-        let x = {
-            let cx = self.extctxt();
-            let state_ident = str_to_ident(state.name.as_ref().unwrap());
-            let mut arms: Vec<Arm> = Vec::new();
-            Self::create_enter_exit_arm(&cx, &state.entry, "Enter").map(|x| arms.push(x));
-            Self::create_enter_exit_arm(&cx, &state.exit, "Exit").map(|x| arms.push(x));
-            for (trigger, target) in state.transitions.iter() {
-                let target_ident = str_to_ident(target);
-                let trigger_ident = str_to_ident(trigger);
-                let pat = if trigger == "_" {
-                    quote_pat!(&cx, $trigger_ident)
-                } else {
-                    quote_pat!(&cx, hsm::Event::User($events::$trigger_ident))
-                };
-                let trans = quote_expr!(&cx, $states::$target_ident);
-                arms.push(cx.arm(DUMMY_SP,
-                                 vec!(pat),
-                                 quote_expr!(&cx, hsm_delayed_transition!(probe, { $trans }))
-                ));
-            };
-            if !state.transitions.contains_key("_") {
-                arms.push(cx.arm(DUMMY_SP,
-                                 vec!(quote_pat!(&cx, _)),
-                                 quote_expr!(&cx, hsm::Action::Parent)
-                ));
-            };
-            let match_expr = cx.expr_match(DUMMY_SP, quote_expr!(&cx, evt), arms);
-            quote_item!(&cx,
-                impl hsm::State<$events, $states, $shr_dat> for $state_ident {
-                    fn handle_event(&mut self, shr_data: &mut $shr_dat, evt: hsm::Event<$events>, probe: bool) -> hsm::Action<$states> {
-                        $match_expr
-                    }
-                }
-            ).unwrap()
+    fn get_condaction_expr(cx: &ExtCtxt, ca: &CondAction, states: &Ident) -> P<Expr> {
+        let action = match ca.action {
+            Action::Ignore                  => quote_expr!(&cx, hsm::Action::Ignore),
+            Action::Parent                  => quote_expr!(&cx, hsm::Action::Parent),
+            Action::Transition(ref st_str)  => {
+                let st = str_to_ident(st_str);
+                quote_expr!(&cx, hsm::Action::Transition($states::$st))
+            },
+            Action::Diverge(ref ca_vec)     => Self::create_action_expr(cx, ca_vec, states)
         };
-        self.krate.module.items.push(x);
+        let effect = ca.effect.as_ref().map(|x| str_to_ident(x));
+        match effect {
+            Some(x) => quote_expr!(&cx, {
+                $x;
+                $action
+            }),
+            None    => quote_expr!(&cx, $action),
+        }
     }
-    */
+
+    fn create_action_expr(cx: &ExtCtxt, ca_vec: &Vec<CondAction>, states: &Ident) -> P<Expr> {
+        match ca_vec.len() {
+            0 => panic!("Empty CondAction vector"),
+            1 => {
+                let ca = &ca_vec[0];
+                if ca.guard.is_some() {
+                    panic!("CondAction vector with a single CondAction with a condition")
+                } else {
+                    Self::get_condaction_expr(cx, ca, states)
+                }
+            },
+            2 => {
+                let (ca_test, ca_else) =
+                    if ca_vec[0].guard.is_some() && ca_vec[1].guard.is_some() {
+                        if ca_vec[0].guard.as_ref().unwrap() == "else" {
+                            (&ca_vec[1],&ca_vec[0])
+                        } else {
+                            if ca_vec[1].guard.as_ref().unwrap() == "else" {
+                                (&ca_vec[0],&ca_vec[1])
+                            } else { panic!("Condaction vector with 2 condactions, but neither condition is else") }
+                        }
+                    } else { panic!("Condaction vector with 2 condactions, but both dont have guards") };
+                let test_guard  = str_to_ident(ca_test.guard.as_ref().unwrap());
+                let test_expr = Self::get_condaction_expr(cx, ca_test, states);
+                let else_expr = Self::get_condaction_expr(cx, ca_else, states);
+                quote_expr!(&cx, {
+                    if $test_guard {
+                        $test_expr
+                    } else {
+                        $else_expr
+                    }
+                })
+            },
+            _ => panic!("CondAction vector with more than 2 condactions is not supported")
+        }
+    }
+
+    fn create_state_impl(&mut self, state: &State, events: &Ident, states: &Ident, shr_dat: &Ident, timeout: &Ident) -> P<Item> {
+        let cx = self.extctxt();
+        let state_ident = str_to_ident(state.name.as_str());
+        let mut arms: Vec<Arm> = Vec::new();
+        let mut entry_extra = Vec::new();
+        let mut exit_extra = Vec::new();
+        for (evt, ca_vec) in state.actions.iter() {
+            let pat = match *evt {
+                Event::Time {ref name, ref relative, ref timeout_ms, ..} => {
+                    let nam = str_to_ident(name);
+                    entry_extra.push(
+                        quote_expr!(&cx,
+                            $timeout::start_timer($timeout::$nam, $timeout_ms);
+                        )
+                    );
+                    exit_extra.push(
+                        quote_expr!(&cx,
+                            $timeout::stop_timer($timeout::$nam);
+                        )
+                    );
+                    quote_pat!(&cx, hsm::Event::User($events::$timeout($timeout::$nam)))
+                },
+                Event::Signal {ref name, ..} => {
+                    let nam = str_to_ident(name);
+                    quote_pat!(&cx, hsm::Event::User($events::$nam))
+                },
+                _ => continue
+            };
+            let expr = Self::create_action_expr(&cx, ca_vec, states);
+            arms.push(cx.arm(DUMMY_SP,
+                             vec!(pat),
+                             quote_expr!(&cx, hsm_delayed_transition!(probe, { $expr }))
+            ));
+        };
+        let mut ordered_arms = Vec::new();
+        Self::create_enter_exit_arm(&cx, &state.entry, "Enter", entry_extra).map(|x| ordered_arms.push(x));
+        Self::create_enter_exit_arm(&cx, &state.exit, "Exit", exit_extra).map(|x| ordered_arms.push(x));
+        ordered_arms.extend(arms);
+        match state.actions.get(&Event::Any) {
+            Some(ref ca_vec) => ordered_arms.push(cx.arm(DUMMY_SP,
+                             vec!(quote_pat!(&cx, _)),
+                             {
+                                let expr = Self::create_action_expr(&cx, ca_vec, states);
+                                quote_expr!(&cx, hsm_delayed_transition!(probe, { $expr }))
+                             }
+            )),
+            None => ordered_arms.push(cx.arm(DUMMY_SP,
+                             vec!(quote_pat!(&cx, _)),
+                             quote_expr!(&cx, hsm::Action::Parent)
+            ))
+        }
+        let match_expr = cx.expr_match(DUMMY_SP, quote_expr!(&cx, evt), ordered_arms);
+        quote_item!(&cx,
+            impl hsm::State<$events, $states, $shr_dat> for $state_ident {
+                fn handle_event(&mut self, shr_data: &mut $shr_dat, evt: hsm::Event<$events>, probe: bool) -> hsm::Action<$states> {
+                    $match_expr
+                }
+            }
+        ).unwrap()
+    }
 
     pub fn create_function_stubs(&mut self, hm: &HashMap<String, State>) {
         let events = str_to_ident("Events");
