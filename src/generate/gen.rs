@@ -33,11 +33,9 @@ use syntax::print::pprust::{NoAnn, print_crate};
 use syntax::parse::token::{str_to_ident, Token, IdentStyle};
 use syntax::codemap::{ExpnId, ExpnInfo, ExpnFormat, CompilerExpansionFormat, NameAndSpan, DUMMY_SP};
 use syntax::feature_gate::GatedCfg;
-
 use rustc_driver::driver::phase_1_parse_input;
 
-
-use ::state::State;
+use ::ir::State;
 use super::inner::Inner;
 
 
@@ -161,7 +159,7 @@ impl HsmGenerator {
             let st = str_to_ident("States");
             let par_lst: Vec<TokenTree> = hm.values()
                 .map(|state| vec![
-                    Token::Ident(str_to_ident(state.name.as_ref().unwrap()), IdentStyle::Plain),
+                    Token::Ident(str_to_ident(state.name.as_str()), IdentStyle::Plain),
                     Token::RArrow,
                     Token::Ident(str_to_ident(if let Some(ref x) = state.parent {x} else {"None"} ), IdentStyle::Plain)
                 ])
@@ -177,6 +175,7 @@ impl HsmGenerator {
         self.krate.module.items.push(x);
     }
 
+    /*
     pub fn create_state_impls(&mut self, hm: &HashMap<String, State>) {
         let events = str_to_ident("Events");
         let states = str_to_ident("States");
@@ -185,6 +184,7 @@ impl HsmGenerator {
             self.create_state_impl(state, &events, &states, &shr_dat);
         }
     }
+    */
 
     fn create_enter_exit_arm(cx: &ExtCtxt, opt_func: &Option<String>, evt_type: &str) -> Option<Arm> {
         if let &Some(ref func_nam) = opt_func {
@@ -200,6 +200,7 @@ impl HsmGenerator {
         } else { None }
     }
 
+    /*
     fn create_state_impl(&mut self, state: &State, events: &Ident, states: &Ident, shr_dat: &Ident) {
         let x = {
             let cx = self.extctxt();
@@ -238,6 +239,7 @@ impl HsmGenerator {
         };
         self.krate.module.items.push(x);
     }
+    */
 
     pub fn create_function_stubs(&mut self, hm: &HashMap<String, State>) {
         let events = str_to_ident("Events");

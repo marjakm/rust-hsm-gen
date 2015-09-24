@@ -21,10 +21,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-
 use syntax::ast::CrateConfig;
 use syntax::ext::expand::ExpansionConfig;
-
 
 use rustc::session::{build_session,Session};
 use rustc::session::config::{build_session_options,build_configuration, Input};

@@ -37,8 +37,8 @@ extern crate sxd_xpath;
 
 #[macro_use]
 mod xmi;
-// mod generate;
+mod generate;
 mod ir;
 
-// pub use generate::HsmGenerator;
+pub use generate::HsmGenerator;
 pub use xmi::XmiReader;
