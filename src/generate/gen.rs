@@ -106,7 +106,7 @@ impl HsmGenerator {
         let cx = self.extctxt();
         let mut variants: Vec<P<Variant>> = Vec::new();
         for (var_name, opt_intern) in vm.iter() {
-            let mut variant = cx.variant(
+            let variant = cx.variant(
                 DUMMY_SP,
                 str_to_ident(var_name),
                 { if let Some(int_name) = opt_intern.as_ref() {
@@ -115,7 +115,6 @@ impl HsmGenerator {
                     Vec::new()
                 }}
             );
-            variant.node.vis = Visibility::Inherited;
             variants.push(P(variant));
         }
         cx.item_enum(
