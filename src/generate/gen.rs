@@ -105,7 +105,9 @@ impl HsmGenerator {
     fn create_enum(&mut self, name: &str, vm: HashMap<String, Option<String>>) -> P<Item> {
         let cx = self.extctxt();
         let mut variants: Vec<P<Variant>> = Vec::new();
-        for (var_name, opt_intern) in vm.iter() {
+        let mut vm_vec = vm.iter().collect::<Vec<(&String, &Option<String>)>>();
+        vm_vec.sort_by(|a,b| a.0.cmp(b.0));
+        for (var_name, opt_intern) in vm_vec {
             let variant = cx.variant(
                 DUMMY_SP,
                 str_to_ident(var_name),
@@ -167,8 +169,10 @@ impl HsmGenerator {
             let st_str = str_to_ident("StateStruct");
             let st     = str_to_ident("States");
             let shr_dat= str_to_ident("SharedData");
-            let states: Vec<TokenTree> = hm
-                .keys()
+            let mut keys_vec = hm.keys().collect::<Vec<&String>>();
+            keys_vec.sort();
+            let states: Vec<TokenTree> = keys_vec
+                .iter()
                 .map(|st_nam| vec![Token::Ident(str_to_ident(st_nam), IdentStyle::Plain)])
                 .collect::<Vec<_>>()
                 .join(&Token::Comma)
@@ -189,7 +193,11 @@ impl HsmGenerator {
         let x = {
             let cx = self.extctxt();
             let st = str_to_ident("States");
-            let par_lst: Vec<TokenTree> = hm.values()
+            let mut states_vec = hm.iter().collect::<Vec<(&String, &State)>>();
+            states_vec.sort_by(|a,b| a.0.cmp(b.0));
+            let par_lst: Vec<TokenTree> = states_vec
+                .iter()
+                .map(|x| x.1)
                 .map(|state| vec![
                     Token::Ident(str_to_ident(state.name.as_str()), IdentStyle::Plain),
                     Token::RArrow,
@@ -329,7 +337,9 @@ impl HsmGenerator {
         let mut arms: Vec<Arm> = Vec::new();
         let mut entry_extra = Vec::new();
         let mut exit_extra = Vec::new();
-        for (evt, ca_vec) in state.actions.iter() {
+        let mut actions_vec = state.actions.iter().collect::<Vec<(&Event, &Vec<CondAction>)>>();
+        actions_vec.sort_by(|a,b| a.0.cmp(b.0));
+        for (evt, ca_vec) in actions_vec {
             let pat = match *evt {
                 Event::Time {ref name, ref relative, ref timeout_ms, ..} => {
                     let nam = str_to_ident(name);
