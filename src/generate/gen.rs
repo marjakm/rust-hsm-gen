@@ -380,10 +380,10 @@ impl HsmGenerator {
                              quote_expr!(&cx, hsm::Action::Parent)
             ))
         }
-        let match_expr = cx.expr_match(DUMMY_SP, quote_expr!(&cx, evt), ordered_arms);
+        let match_expr = cx.expr_match(DUMMY_SP, quote_expr!(&cx, *evt), ordered_arms);
         quote_item!(&cx,
             impl hsm::State<$events, $states, $shr_dat> for $state_ident {
-                fn handle_event(&mut self, shr: &mut $shr_dat, evt: hsm::Event<$events>, probe: bool) -> hsm::Action<$states> {
+                fn handle_event(&mut self, shr: &mut $shr_dat, evt: &hsm::Event<$events>, probe: bool) -> hsm::Action<$states> {
                     $match_expr
                 }
             }
