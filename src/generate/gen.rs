@@ -248,27 +248,41 @@ impl HsmGenerator {
         }
     }
 
-    fn get_condaction_expr(cx: &ExtCtxt, ca: &CondAction, states: &Ident) -> P<Expr> {
+    fn get_condaction_expr(cx: &ExtCtxt, ca: &CondAction, states: &Ident) -> (P<Expr>, bool) {
+        let mut use_delayed_transition = true;
         let action = match ca.action {
-            Action::Ignore                  => quote_expr!(&cx, hsm::Action::Ignore),
-            Action::Parent                  => quote_expr!(&cx, hsm::Action::Parent),
+            Action::Ignore                  => {
+                use_delayed_transition = false;
+                quote_expr!(&cx, hsm::Action::Ignore)
+            },
+            Action::Parent                  => {
+                use_delayed_transition = false;
+                quote_expr!(&cx, hsm::Action::Parent)
+            },
             Action::Transition(ref st_str)  => {
                 let st = str_to_ident(st_str);
-                quote_expr!(&cx, hsm::Action::Transition($states::$st))
+                quote_expr!(&cx, $states::$st)
             },
-            Action::Diverge(ref ca_vec)     => Self::create_action_expr(cx, ca_vec, states)
+            Action::Diverge(ref ca_vec)     => {
+                let tupl = Self::create_action_expr(cx, ca_vec, states);
+                use_delayed_transition = tupl.1;
+                tupl.0
+            }
         };
         let effect = ca.effect.as_ref().map(|x| str_to_ident(x));
-        match effect {
-            Some(x) => quote_expr!(&cx, {
-                $x;
-                $action
-            }),
-            None    => quote_expr!(&cx, $action),
-        }
+        (
+            match effect {
+                Some(x) => quote_expr!(&cx, {
+                    $x;
+                    $action
+                }),
+                None    => quote_expr!(&cx, $action),
+            },
+            use_delayed_transition
+        )
     }
 
-    fn create_action_expr(cx: &ExtCtxt, ca_vec: &Vec<CondAction>, states: &Ident) -> P<Expr> {
+    fn create_action_expr(cx: &ExtCtxt, ca_vec: &Vec<CondAction>, states: &Ident) -> (P<Expr>, bool) {
         match ca_vec.len() {
             0 => panic!("Empty CondAction vector"),
             1 => {
@@ -291,15 +305,19 @@ impl HsmGenerator {
                         }
                     } else { panic!("Condaction vector with 2 condactions, but both dont have guards") };
                 let test_guard  = str_to_ident(ca_test.guard.as_ref().unwrap());
-                let test_expr = Self::get_condaction_expr(cx, ca_test, states);
-                let else_expr = Self::get_condaction_expr(cx, ca_else, states);
-                quote_expr!(&cx, {
-                    if $test_guard {
-                        $test_expr
-                    } else {
-                        $else_expr
-                    }
-                })
+                let (test_expr, test_use_delayed_transition) = Self::get_condaction_expr(cx, ca_test, states);
+                let (else_expr, else_use_delayed_transition) = Self::get_condaction_expr(cx, ca_else, states);
+                assert_eq!(test_use_delayed_transition, else_use_delayed_transition);
+                (
+                    quote_expr!(&cx, {
+                        if $test_guard {
+                            $test_expr
+                        } else {
+                            $else_expr
+                        }
+                    }),
+                    test_use_delayed_transition
+                )
             },
             _ => panic!("CondAction vector with more than 2 condactions is not supported")
         }
@@ -333,10 +351,13 @@ impl HsmGenerator {
                 },
                 _ => continue
             };
-            let expr = Self::create_action_expr(&cx, ca_vec, states);
+            let (expr, use_delayed_transition) = Self::create_action_expr(&cx, ca_vec, states);
             arms.push(cx.arm(DUMMY_SP,
                              vec!(pat),
-                             quote_expr!(&cx, hsm_delayed_transition!(probe, { $expr }))
+                             match use_delayed_transition {
+                                 true  => quote_expr!(&cx, hsm_delayed_transition!(probe, { $expr })),
+                                 false => quote_expr!(&cx, $expr)
+                             }
             ));
         };
         let mut ordered_arms = Vec::new();
@@ -347,8 +368,11 @@ impl HsmGenerator {
             Some(ref ca_vec) => ordered_arms.push(cx.arm(DUMMY_SP,
                              vec!(quote_pat!(&cx, _)),
                              {
-                                let expr = Self::create_action_expr(&cx, ca_vec, states);
-                                quote_expr!(&cx, hsm_delayed_transition!(probe, { $expr }))
+                                let (expr, use_delayed_transition) = Self::create_action_expr(&cx, ca_vec, states);
+                                match use_delayed_transition {
+                                    true  => quote_expr!(&cx, hsm_delayed_transition!(probe, { $expr })),
+                                    false => quote_expr!(&cx, $expr)
+                                }
                              }
             )),
             None => ordered_arms.push(cx.arm(DUMMY_SP,
@@ -359,7 +383,7 @@ impl HsmGenerator {
         let match_expr = cx.expr_match(DUMMY_SP, quote_expr!(&cx, evt), ordered_arms);
         quote_item!(&cx,
             impl hsm::State<$events, $states, $shr_dat> for $state_ident {
-                fn handle_event(&mut self, shr_data: &mut $shr_dat, evt: hsm::Event<$events>, probe: bool) -> hsm::Action<$states> {
+                fn handle_event(&mut self, shr: &mut $shr_dat, evt: hsm::Event<$events>, probe: bool) -> hsm::Action<$states> {
                     $match_expr
                 }
             }
