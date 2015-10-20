@@ -57,13 +57,16 @@ impl State {
                 let evt_activ: Vec<&str> = group.split("=>").collect();
                 if evt_activ.len() == 2 {
                     hm.insert(
-                        Event::Signal {
-                            id  : "DUMMY".to_string(),
-                            name: evt_activ[0].to_string()
+                        match evt_activ[0].trim() {
+                            "_" => Event::Any,
+                            x   => Event::Signal {
+                                id  : "DUMMY".to_string(),
+                                name: x.to_string()
+                            }
                         },
                         vec!(CondAction {
                             guard   : None,
-                            effect  : Some(evt_activ[1].to_string()),
+                            effect  : Some(evt_activ[1].trim().to_string()),
                             action  : Action::Ignore,
                         })
                     );
