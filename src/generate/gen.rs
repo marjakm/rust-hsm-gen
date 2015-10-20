@@ -30,8 +30,8 @@ use syntax::ptr::P;
 use syntax::ext::base::ExtCtxt;
 use syntax::ext::build::AstBuilder;
 use syntax::print::pprust::{NoAnn, print_crate};
-use syntax::parse::token::{str_to_ident, Token, IdentStyle};
-use syntax::codemap::{ExpnId, ExpnInfo, ExpnFormat, CompilerExpansionFormat, NameAndSpan, DUMMY_SP};
+use syntax::parse::token::{str_to_ident, gensym, Token, IdentStyle};
+use syntax::codemap::{ExpnId, ExpnInfo, ExpnFormat, NameAndSpan, DUMMY_SP};
 use syntax::feature_gate::GatedCfg;
 use rustc_driver::driver::phase_1_parse_input;
 
@@ -66,7 +66,7 @@ impl HsmGenerator {
             ExpnInfo {
                 call_site: self.krate.span,
                 callee: NameAndSpan {
-                    format: ExpnFormat::CompilerExpansion(CompilerExpansionFormat::PlacementIn),
+                    format: ExpnFormat::MacroBang(gensym("hsm_generate")),
                     allow_internal_unstable: true,
                     span: None,
                 },
