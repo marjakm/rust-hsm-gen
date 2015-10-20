@@ -29,6 +29,7 @@ use ::XmiReader;
 pub enum Event {
     Time   {id: String, name: String, relative: bool, timeout_ms: u64},
     Signal {id: String, name: String},
+    UserAny,
     Any,
 }
 

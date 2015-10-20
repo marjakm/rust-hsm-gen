@@ -152,7 +152,7 @@ impl HsmGenerator {
                 signals.insert(nam_parts[0].to_string(), int_val);
             },
             Event::Time   {ref name, ..} => { time_evts.insert(name.to_string(), None); },
-            _ => {},
+            Event::Any | Event::UserAny  => {},
         }).count()).count();
         // debug!("{:#?}", time_evts);
         // debug!("{:#?}", signals);
@@ -331,6 +331,14 @@ impl HsmGenerator {
         }
     }
 
+    fn create_final_action_expr(cx: &ExtCtxt, ca_vec: &Vec<CondAction>, states: &Ident) -> P<Expr> {
+        let (expr, use_delayed_transition) = Self::create_action_expr(&cx, ca_vec, states);
+        match use_delayed_transition {
+            true  => quote_expr!(&cx, hsm_delayed_transition!(probe, { $expr })),
+            false => expr
+        }
+    }
+
     fn create_state_impl(&mut self, state: &State, events: &Ident, states: &Ident, shr_dat: &Ident, timeout: &Ident) -> P<Item> {
         let cx = self.extctxt();
         let state_ident = str_to_ident(state.name.as_str());
@@ -359,31 +367,27 @@ impl HsmGenerator {
                     let nam = str_to_ident(name);
                     quote_pat!(&cx, hsm::Event::User($events::$nam))
                 },
-                _ => continue
+                Event::Any | Event::UserAny => continue
             };
-            let (expr, use_delayed_transition) = Self::create_action_expr(&cx, ca_vec, states);
             arms.push(cx.arm(DUMMY_SP,
                              vec!(pat),
-                             match use_delayed_transition {
-                                 true  => quote_expr!(&cx, hsm_delayed_transition!(probe, { $expr })),
-                                 false => quote_expr!(&cx, $expr)
-                             }
+                             Self::create_final_action_expr(&cx, ca_vec, states)
             ));
         };
         let mut ordered_arms = Vec::new();
         Self::create_enter_exit_arm(&cx, &state.entry, "Enter", entry_extra).map(|x| ordered_arms.push(x));
         Self::create_enter_exit_arm(&cx, &state.exit, "Exit", exit_extra).map(|x| ordered_arms.push(x));
         ordered_arms.extend(arms);
+        if let Some(ref ca_vec) = state.actions.get(&Event::UserAny) {
+            ordered_arms.push(cx.arm(DUMMY_SP,
+                             vec!(quote_pat!(&cx, hsm::Event::User(_))),
+                             Self::create_final_action_expr(&cx, ca_vec, states)
+            ))
+        }
         match state.actions.get(&Event::Any) {
             Some(ref ca_vec) => ordered_arms.push(cx.arm(DUMMY_SP,
                              vec!(quote_pat!(&cx, _)),
-                             {
-                                let (expr, use_delayed_transition) = Self::create_action_expr(&cx, ca_vec, states);
-                                match use_delayed_transition {
-                                    true  => quote_expr!(&cx, hsm_delayed_transition!(probe, { $expr })),
-                                    false => quote_expr!(&cx, $expr)
-                                }
-                             }
+                             Self::create_final_action_expr(&cx, ca_vec, states)
             )),
             None => ordered_arms.push(cx.arm(DUMMY_SP,
                              vec!(quote_pat!(&cx, _)),
