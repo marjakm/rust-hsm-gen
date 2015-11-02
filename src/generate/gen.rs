@@ -157,7 +157,11 @@ impl HsmGenerator {
         // debug!("{:#?}", time_evts);
         // debug!("{:#?}", signals);
         let time_enum = self.create_enum("Timeout", time_evts);
-        self.krate.module.items.push(time_enum);
+        let wrapped_time_enum = {
+            let cx = self.extctxt();
+            quote_item!(&cx, et_create_enum_timer!{TimeoutStorage; $time_enum})
+        }.unwrap();
+        self.krate.module.items.push(wrapped_time_enum);
         let event_enum = self.create_enum("Events", signals);
         self.krate.module.items.push(event_enum);
     }
@@ -353,12 +357,12 @@ impl HsmGenerator {
                     let nam = str_to_ident(name);
                     entry_extra.push(
                         quote_expr!(&cx,
-                            $timeout::start_timer($timeout::$nam, $timeout_ms);
+                            shr.timer.start($timeout::$nam, $timeout_ms);
                         )
                     );
                     exit_extra.push(
                         quote_expr!(&cx,
-                            $timeout::stop_timer($timeout::$nam);
+                            shr.timer.stop($timeout::$nam);
                         )
                     );
                     quote_pat!(&cx, hsm::Event::User($events::$timeout($timeout::$nam)))

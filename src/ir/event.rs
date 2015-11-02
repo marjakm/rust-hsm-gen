@@ -27,7 +27,7 @@ use ::XmiReader;
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Ord, PartialOrd)]
 pub enum Event {
-    Time   {id: String, name: String, relative: bool, timeout_ms: u64},
+    Time   {id: String, name: String, relative: bool, timeout_ms: u32},
     Signal {id: String, name: String},
     UserAny,
     Any,
@@ -44,7 +44,7 @@ impl Event {
                     "false" => false,
                     _ => panic!("Relative with unknown value")
                 },
-                timeout_ms: u64::from_str_radix(
+                timeout_ms: u32::from_str_radix(
                     reader.get_attr(get_node!(reader, node, "when/expr"), "value")
                         .expect("TimeEvent without timeout")
                         .as_str(),
