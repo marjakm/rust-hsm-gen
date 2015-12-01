@@ -56,7 +56,7 @@ impl Action {
                     ),
                 }
             } else {
-                panic!("CondAction get_target: target_id {} not in subvertex map", t.target_id)
+                panic!("CondAction get_target for {:?}: target_id {} not in subvertex map", t, t.target_id)
             }
         }
     }

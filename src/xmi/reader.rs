@@ -111,7 +111,7 @@ impl<'a:'d, 'd> XmiReader<'a, 'd> {
         // debug!("{:#?}", sm);
         // Convert transitions to condactions
         for key in sm.keys().map(|x| x.to_string()).collect::<Vec<String>>().iter() {
-            let mut state = sm.remove(key).unwrap();
+            let mut state = sm.get(key).unwrap().clone();
             while let Some(trans) = state.transitions.pop() {
                 state.add_action(trans, &sm, &vm);
             }
