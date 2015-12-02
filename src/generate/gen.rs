@@ -25,7 +25,7 @@ use std::io::prelude::*;
 use std::fs::File;
 use std::collections::{HashSet, HashMap};
 
-use syntax::ast::*;
+use syntax::ast::{Crate, Variant, Item, Visibility, TokenTree, Expr, Arm, Ident, EnumDef};
 use syntax::ptr::P;
 use syntax::ext::base::ExtCtxt;
 use syntax::ext::build::AstBuilder;
@@ -181,7 +181,7 @@ impl HsmGenerator {
                 .collect::<Vec<_>>()
                 .join(&Token::Comma)
                 .into_iter()
-                .map(|t| TtToken(DUMMY_SP, t))
+                .map(|t| TokenTree::Token(DUMMY_SP, t))
                 .collect();
 
             quote_item!(&cx,
@@ -210,7 +210,7 @@ impl HsmGenerator {
                 .collect::<Vec<_>>()
                 .join(&Token::Comma)
                 .into_iter()
-                .map(|t| TtToken(DUMMY_SP, t))
+                .map(|t| TokenTree::Token(DUMMY_SP, t))
                 .collect();
             quote_item!(&cx,
                 hsm_state_parents!($st; $par_lst);

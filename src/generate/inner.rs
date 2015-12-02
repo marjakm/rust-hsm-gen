@@ -21,12 +21,14 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+use std::rc::Rc;
 use syntax::ast::CrateConfig;
 use syntax::ext::expand::ExpansionConfig;
 
-use rustc::session::{build_session,Session};
-use rustc::session::config::{build_session_options,build_configuration, Input};
-use rustc_driver::{handle_options,diagnostics_registry};
+use rustc::middle::cstore::DummyCrateStore;
+use rustc::session::{build_session, Session};
+use rustc::session::config::{build_session_options, build_configuration, Input};
+use rustc_driver::{handle_options, diagnostics_registry};
 use rustc_driver::driver::source_name;
 
 
@@ -54,7 +56,7 @@ impl Inner {
         };
         let descriptions = diagnostics_registry();
         let sopts = build_session_options(&matches);
-        let sess = build_session(sopts, None, descriptions);
+        let sess = build_session(sopts, None, descriptions, Rc::new(DummyCrateStore));
         let cfg = build_configuration(&sess);
         let input = Input::Str( if prefix {CRATE_SRC.to_string()} else {FN_CRATE_SRC.to_string()});
 
