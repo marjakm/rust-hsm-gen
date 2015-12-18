@@ -32,7 +32,7 @@ use syntax::ext::build::AstBuilder;
 use syntax::print::pprust::{NoAnn, print_crate};
 use syntax::parse::token::{str_to_ident, gensym, Token, IdentStyle};
 use syntax::codemap::{ExpnId, ExpnInfo, ExpnFormat, NameAndSpan, DUMMY_SP};
-use syntax::feature_gate::GatedCfg;
+use syntax::feature_gate::GatedCfgAttr;
 use rustc_driver::driver::phase_1_parse_input;
 
 use ::ir::{State, Event, CondAction, Action};
@@ -42,7 +42,7 @@ use super::inner::Inner;
 pub struct HsmGenerator {
     inner               : Inner,
     krate               : Crate,
-    feature_gated_cfgs  : Vec<GatedCfg>,
+    feature_gated_cfgs  : Vec<GatedCfgAttr>,
 
 }
 impl HsmGenerator {
