@@ -29,20 +29,29 @@ use super::{Transition, Subvertex, CondAction, State};
 pub enum Action {
     Ignore,
     Parent,
-    Transition(String),
-    Diverge(Vec<CondAction>)
+    Transition { state:        String,          effect: Option<String>},
+    Diverge    { cond_act_vec: Vec<CondAction>, effect: Option<String>},
 }
 
 impl Action {
     pub fn from_transition(t: &Transition, sm: &HashMap<String, State>, vm: &HashMap<String, Subvertex>) -> Self {
+        Self::from_transition_with_effect(t, sm, vm, None)
+    }
+
+    fn from_transition_with_effect(t: &Transition, sm: &HashMap<String, State>, vm: &HashMap<String, Subvertex>, effect: Option<String>) -> Self {
         assert!(t.guard.is_none());
-        assert!(t.effect.is_none());
         assert!(t.trigger.is_none());
+
+        let eff = match (effect, &t.effect) {
+            (Some(ref a), &Some(ref b)) => Some(format!("{{{};{}}}", a, b)),
+            (None,        b           ) => b.clone(),
+            (a,           &None       ) => a,
+        };
 
         if let Some(state) = sm.get(&t.target_id) {
             match state.initial_transition {
-                Some(ref trans) => Self::from_transition(trans, sm, vm),
-                None            => Action::Transition(state.name.clone())
+                Some(ref trans) => Self::from_transition_with_effect(trans, sm, vm, eff),
+                None            => Action::Transition { state: state.name.clone(), effect: eff }
             }
         } else {
             if let Some(subvertex) = vm.get(&t.target_id) {
@@ -50,10 +59,11 @@ impl Action {
                     Subvertex::Initial  {..}                   => panic!("Transition to initial state is forbidden"),
                     Subvertex::Final    {..}                   => panic!("Implement transition to final state"),
                     Subvertex::State    {ref state, ..}        => panic!("CondAction get_target: found state in subvertex map"),
-                    Subvertex::Junction {ref transition, ..}   => Self::from_transition(&transition, sm, vm),
-                    Subvertex::Choice   {ref transitions, ..}  => Action::Diverge(
-                        transitions.iter().map(|x| CondAction::from_transition((*x).clone(), sm, vm)).collect()
-                    ),
+                    Subvertex::Junction {ref transition, ..}   => Self::from_transition_with_effect(&transition, sm, vm, eff),
+                    Subvertex::Choice   {ref transitions, ..}  => Action::Diverge {
+                        cond_act_vec: transitions.iter().map(|x| CondAction::from_transition((*x).clone(), sm, vm)).collect(),
+                        effect:       eff
+                    },
                 }
             } else {
                 panic!("CondAction get_target for {:?}: target_id {} not in subvertex map", t, t.target_id)

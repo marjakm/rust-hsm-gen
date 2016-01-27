@@ -271,14 +271,20 @@ impl HsmGenerator {
                 use_delayed_transition = false;
                 quote_expr!(&cx, hsm::Action::Parent)
             },
-            Action::Transition(ref st_str)  => {
+            Action::Transition { state: ref st_str, effect: ref opt_ef}  => {
                 let st = str_to_ident(st_str);
-                quote_expr!(&cx, $states::$st)
+                match opt_ef.as_ref().map(|x| str_to_ident(x)) {
+                    Some(ref ef) => quote_expr!(&cx, { $ef; $states::$st }),
+                    None         => quote_expr!(&cx, $states::$st)
+                }
             },
-            Action::Diverge(ref ca_vec)     => {
+            Action::Diverge { cond_act_vec: ref ca_vec, effect: ref opt_ef }     => {
                 let tupl = Self::create_action_expr(cx, ca_vec, states);
                 use_delayed_transition = tupl.1;
-                tupl.0
+                match opt_ef.as_ref().map(|x| str_to_ident(x)) {
+                    Some(ref ef) => { let e = tupl.0; quote_expr!(&cx, { $ef; $e }) },
+                    None         => tupl.0
+                }
             }
         };
         let effect = ca.effect.as_ref().map(|x| str_to_ident(x));
